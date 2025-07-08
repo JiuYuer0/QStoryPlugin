@@ -1,1 +1,1 @@
-# QStoryPlugin
+qstory模块脚本
