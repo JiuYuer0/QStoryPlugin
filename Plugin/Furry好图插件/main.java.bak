@@ -1,0 +1,20 @@
+// 收到消息时触发
+public void onMsg(Object msg) {
+    String content = msg.MessageContent;
+    String groupUin = msg.GroupUin;
+    String userUin = msg.PeerUin; // 私聊时对方的QQ号
+    
+    // 匹配消息内容（严格匹配包含#符号和大小写）
+    if (content.trim().equals("#furry好图")) {
+        String imgUrl = "https://uapis.cn/api/imgapi/furry/img4k.php";
+        
+        // 根据聊天类型发送图片
+        if (msg.IsGroup) {
+            // 群聊发送到当前群（参数二留空表示群消息）
+            sendPic(groupUin, "", imgUrl);
+        } else {
+            // 私聊发送给当前用户（参数一留空表示私聊）
+            sendPic("", userUin, imgUrl);
+        }
+    }
+}
