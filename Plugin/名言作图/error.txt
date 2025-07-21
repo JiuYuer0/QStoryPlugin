@@ -1,0 +1,45 @@
+2025年6月9日星期一06:59:46
+Typed variable declaration
+
+堆栈Trace:
+行数: 107 : 文件位置: /storage/emulated/0/Android/data/com.tencent.mobileqq/QStory/Plugin/名言作图/main.java : [1]
+
+Target exception: java.lang.ArrayIndexOutOfBoundsException: length=1; index=1
+
+	at bsh.BSHPrimarySuffix.doIndex(Unknown Source:18)
+	at bsh.BSHPrimarySuffix.doSuffix(Unknown Source:108)
+	at bsh.BSHPrimaryExpression.eval(SourceFile:4)
+	at bsh.BSHPrimaryExpression.eval(SourceFile:1)
+	at bsh.BSHArguments.getArguments(Unknown Source:15)
+	at bsh.BSHMethodInvocation.eval(Unknown Source:53)
+	at bsh.BSHPrimaryExpression.eval(SourceFile:9)
+	at bsh.BSHPrimaryExpression.eval(SourceFile:1)
+	at bsh.BSHVariableDeclarator.eval(Unknown Source:34)
+	at bsh.BSHTypedVariableDeclaration.eval(Unknown Source:22)
+	at bsh.BSHBlock.evalBlock(Unknown Source:76)
+	at bsh.BSHBlock.eval(SourceFile:9)
+	at bsh.BSHBlock.eval(SourceFile:1)
+	at bsh.BSHIfStatement.eval(Unknown Source:20)
+	at bsh.BSHBlock.evalBlock(Unknown Source:76)
+	at bsh.BSHBlock.eval(SourceFile:9)
+	at bsh.BSHBlock.eval(SourceFile:1)
+	at bsh.BSHIfStatement.eval(Unknown Source:20)
+	at bsh.BSHIfStatement.eval(Unknown Source:38)
+	at bsh.BSHBlock.evalBlock(Unknown Source:76)
+	at bsh.BSHBlock.eval(SourceFile:9)
+	at bsh.BshMethod.invokeImpl(Unknown Source:204)
+	at bsh.BshMethod.invoke(SourceFile:18)
+	at bsh.BshMethod.invoke(SourceFile:1)
+	at lin.xposed.hook.javaplugin.controller.PluginManager.invokeToPluginMethod(Unknown Source:78)
+	at lin.xposed.hook.javaplugin.controller.PluginManager.lambda$invokeInAllScriptCallbackMethod$0(Unknown Source:0)
+	at lin.xposed.hook.javaplugin.controller.PluginManager.a(Unknown Source:0)
+	at lin.xposed.hook.javaplugin.controller.d.run(Unknown Source:6)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1251)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:668)
+	at java.lang.Thread.run(Thread.java:1012)
+Caused by: java.lang.ArrayIndexOutOfBoundsException: length=1; index=1
+	at java.lang.reflect.Array.get(Array.java:182)
+	at bsh.Reflect.getIndex(Unknown Source:32)
+	at bsh.BSHPrimarySuffix.doIndex(Unknown Source:12)
+	... 30 more
+
