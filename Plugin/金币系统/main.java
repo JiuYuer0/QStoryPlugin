@@ -575,9 +575,14 @@ void handleWork(Object msg) {
     
     long now = System.currentTimeMillis();
     long lastWork = getLongValue(group, "workTime_" + uin, 0L);
+    String cooldownKey = "cd_work_" + uin;
     
     if (now - lastWork < WORK_COOLDOWN) {
-        sendMsg(group, "", "打工冷却中，请等待" + formatCoolDown(lastWork + WORK_COOLDOWN - now));
+        long remaining = lastWork + WORK_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "打工冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
         return;
     }
     
@@ -601,6 +606,7 @@ void handleWork(Object msg) {
     int currentGold = getGold(group, uin);
     setGold(group, uin, currentGold + earned);
     setLongValue(group, "workTime_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
     
     String name = getSafeMemberName(group, uin);
     sendMsg(group, "", name + " 打工赚了" + earned + "金币，总金币:" + (currentGold + earned));
@@ -621,9 +627,14 @@ void handleRob(Object msg) {
     
     long now = System.currentTimeMillis();
     long lastRob = getLongValue(group, "robTime_" + robberUin, 0L);
+    String cooldownKey = "cd_rob_" + robberUin;
     
     if (now - lastRob < ROB_COOLDOWN) {
-        sendMsg(group, "", "打劫冷却中，请等待" + formatCoolDown(lastRob + ROB_COOLDOWN - now));
+        long remaining = lastRob + ROB_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "打劫冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
         return;
     }
     
@@ -717,6 +728,7 @@ void handleRob(Object msg) {
     }
     
     setLongValue(group, "robTime_" + robberUin, now);
+    setBooleanValue(group, cooldownKey, false);
     
     String robberName = getSafeMemberName(group, robberUin);
     String victimName = getSafeMemberName(group, victimUin);
@@ -753,527 +765,213 @@ void handleRob(Object msg) {
     checkAchievement(group, robberUin, "rob", robbed);
 }
 
-void handleSign(Object msg) {
+void handleFishing(Object msg) {
     String uin = msg.UserUin;
     String group = msg.GroupUin;
     if (!isEnabled(group)) return;
     
-    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
-    String today = sdf.format(new java.util.Date());
-    String lastSign = getStringValue(group, "signDate_" + uin, "");
-    
-    if (lastSign.equals(today)) {
-        sendMsg(group, "", "今天已经签到过了");
-        return;
-    }
-    
-    int earned = 50 + (int)(Math.random() * 51);
-    
-    int consecutiveDays = getIntValue(group, "consecutiveDays_" + uin, 0);
-    if (!lastSign.isEmpty() && !isYesterday(lastSign, today)) {
-        consecutiveDays = 0;
-    }
-    consecutiveDays++;
-    setIntValue(group, "consecutiveDays_" + uin, consecutiveDays);
-    
-    earned += consecutiveDays * 10;
-    
-    String pet = getPet(group, uin);
-    if (pet != null && pet.equals("幸运兔")) {
-        earned += getPetIncome(group, uin);
-    }
-    
-    int currentGold = getGold(group, uin);
-    setGold(group, uin, currentGold + earned);
-    setStringValue(group, "signDate_" + uin, today);
-    
-    String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 签到获得" + earned + "金币（连续签到" + consecutiveDays + "天），总金币:" + (currentGold + earned));
-    updateDailyTaskProgress(group, uin, "sign");
-    checkAchievement(group, uin, "sign", 1);
-}
-
-boolean isYesterday(String lastDate, String today) {
-    try {
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
-        java.util.Date last = sdf.parse(lastDate);
-        java.util.Date now = sdf.parse(today);
-        long diff = now.getTime() - last.getTime();
-        return diff == 86400000;
-    } catch (Exception e) {
-        return false;
-    }
-}
-
-void handleTransfer(Object msg) {
-    String senderUin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
     long now = System.currentTimeMillis();
-    long lastTransfer = getLongValue(group, "transferTime_" + senderUin, 0L);
+    long lastFishing = getLongValue(group, "fishingTime_" + uin, 0L);
+    String cooldownKey = "cd_fish_" + uin;
     
-    if (now - lastTransfer < TRANSFER_COOLDOWN) {
-        sendMsg(group, "", "转账冷却中，请等待" + formatCoolDown(lastTransfer + TRANSFER_COOLDOWN - now));
-        return;
-    }
-    
-    if (msg.mAtList == null || msg.mAtList.isEmpty()) {
-        sendMsg(group, "", "请@要赠送金币的人");
-        return;
-    }
-    
-    String receiverUin = (String) msg.mAtList.get(0);
-    if (receiverUin.equals(senderUin)) {
-        sendMsg(group, "", "不能送金币给自己");
-        return;
-    }
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split(" ");
-    int amount = 0;
-    
-    try {
-        for (String part : parts) {
-            if (part.matches("\\d+")) {
-                amount = Integer.parseInt(part);
-                break;
-            }
+    if (now - lastFishing < FISHING_COOLDOWN) {
+        long remaining = lastFishing + FISHING_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "钓鱼冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
         }
-    } catch (Exception e) {
-        sendMsg(group, "", "请指定有效的金币数量");
         return;
     }
     
-    if (amount <= 0) {
-        sendMsg(group, "", "金币数量必须大于0");
-        return;
+    Object[] fishNames = fishTypes.keySet().toArray();
+    String caughtFish = (String) fishNames[(int)(Math.random() * fishNames.length)];
+    java.util.Map fish = (java.util.Map) fishTypes.get(caughtFish);
+    
+    int minValue = (Integer) fish.get("min");
+    int maxValue = (Integer) fish.get("max");
+    int fishValue = minValue + (int)(Math.random() * (maxValue - minValue + 1));
+    
+    if (hasItem(group, uin, "高级鱼竿")) {
+        fishValue = (int)(fishValue * 1.5);
     }
     
-    int senderGold = getGold(group, senderUin);
-    if (senderGold < amount) {
-        sendMsg(group, "", "你的金币不足");
-        return;
+    String career = getCareer(group, uin);
+    if ("渔夫".equals(career)) {
+        fishValue = (int)(fishValue * 1.4);
     }
-    
-    int receiverGold = getGold(group, receiverUin);
-    
-    setGold(group, senderUin, senderGold - amount);
-    setGold(group, receiverUin, receiverGold + amount);
-    setLongValue(group, "transferTime_" + senderUin, now);
-    
-    String senderName = getSafeMemberName(group, senderUin);
-    String receiverName = getSafeMemberName(group, receiverUin);
-    sendMsg(group, "", senderName + " 赠送了 " + receiverName + " " + amount + "金币");
-    checkAchievement(group, senderUin, "transfer", amount);
-}
-
-void handleWeaponShop(Object msg) {
-    String group = msg.GroupUin;
-    StringBuilder sb = new StringBuilder();
-    sb.append("武器商店\n");
-    sb.append("使用「购买武器 [武器名]」购买\n\n");
-    
-    for (Object weaponNameObj : weapons.keySet()) {
-        String weaponName = (String) weaponNameObj;
-        java.util.Map weapon = (java.util.Map) weapons.get(weaponName);
-        sb.append(weaponName).append(" | 价格: ").append(weapon.get("price"))
-          .append(" | 攻击: ").append(weapon.get("attack"))
-          .append(" | 防御: ").append(weapon.get("defense"))
-          .append(" | 可强化: ").append(weapon.get("maxLevel")).append("级\n");
-    }
-    
-    sendMsg(group, "", sb.toString());
-}
-
-void handleItemShop(Object msg) {
-    String group = msg.GroupUin;
-    StringBuilder sb = new StringBuilder();
-    sb.append("道具商店\n");
-    sb.append("使用「购买道具 [道具名]」购买\n\n");
-    
-    for (Object itemNameObj : items.keySet()) {
-        String itemName = (String) itemNameObj;
-        java.util.Map item = (java.util.Map) items.get(itemName);
-        sb.append(itemName).append(" | 价格: ").append(item.get("price"));
-        
-        if (itemName.equals("经验卡")) sb.append(" | 效果: 打工双倍金币");
-        else if (itemName.equals("护盾")) sb.append(" | 效果: 防止被抢劫");
-        else if (itemName.equals("高级鱼竿")) sb.append(" | 效果: 钓鱼获得更多金币");
-        else if (itemName.equals("彩票")) sb.append(" | 效果: 有机会中大奖");
-        else if (itemName.equals("复活药水")) sb.append(" | 效果: 副本挑战失败时减少损失");
-        else if (itemName.equals("宠物粮")) sb.append(" | 效果: 喂养宠物");
-        else if (itemName.equals("强化石")) sb.append(" | 效果: 强化装备");
-        else if (itemName.equals("藏宝图")) sb.append(" | 效果: 寻找宝藏");
-        else if (itemName.equals("节日代币")) sb.append(" | 效果: 节日活动专用");
-        else if (itemName.equals("家园装饰")) sb.append(" | 效果: 装饰家园增加收益");
-        else if (itemName.equals("存款保险")) sb.append(" | 效果: 保护存款安全");
-        else if (itemName.equals("黑市令牌")) sb.append(" | 效果: 进入黑市交易");
-        else if (itemName.equals("任务重置券")) sb.append(" | 效果: 重置每日任务");
-        
-        sb.append("\n");
-    }
-    
-    sendMsg(group, "", sb.toString());
-}
-
-void handlePetShop(Object msg) {
-    String group = msg.GroupUin;
-    StringBuilder sb = new StringBuilder();
-    sb.append("宠物商店\n");
-    sb.append("使用「购买宠物 [宠物名]」购买\n\n");
-    
-    for (Object petNameObj : pets.keySet()) {
-        String petName = (String) petNameObj;
-        java.util.Map pet = (java.util.Map) pets.get(petName);
-        sb.append(petName).append(" | 价格: ").append(pet.get("price"))
-          .append(" | 每日收益: ").append(pet.get("income"))
-          .append(" | 加成: ").append(pet.get("bonus"))
-          .append(" | 战力: ").append(pet.get("attack")).append("/").append(pet.get("defense")).append("\n");
-    }
-    
-    sendMsg(group, "", sb.toString());
-}
-
-void handleHouseShop(Object msg) {
-    String group = msg.GroupUin;
-    StringBuilder sb = new StringBuilder();
-    sb.append("房产商店\n");
-    sb.append("使用「购买家园 [家园名]」购买\n\n");
-    
-    for (Object houseNameObj : houses.keySet()) {
-        String houseName = (String) houseNameObj;
-        java.util.Map house = (java.util.Map) houses.get(houseName);
-        sb.append(houseName).append(" | 价格: ").append(house.get("price"))
-          .append(" | 每日收益: ").append(house.get("income"))
-          .append(" | 装饰槽: ").append(house.get("slots")).append("\n");
-    }
-    
-    sendMsg(group, "", sb.toString());
-}
-
-void handleCareerShop(Object msg) {
-    String group = msg.GroupUin;
-    StringBuilder sb = new StringBuilder();
-    sb.append("职业选择\n");
-    sb.append("使用「选择职业 [职业名]」选择\n\n");
-    
-    for (Object careerNameObj : careers.keySet()) {
-        String careerName = (String) careerNameObj;
-        java.util.Map career = (java.util.Map) careers.get(careerName);
-        sb.append(careerName).append(" | 价格: ").append(career.get("price"))
-          .append(" | 加成: ").append(career.get("bonus"))
-          .append(" | 效果: ").append(career.get("effect")).append("\n");
-    }
-    
-    sendMsg(group, "", sb.toString());
-}
-
-void handleBuyWeapon(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split("\\s+", 2);
-    if (parts.length < 2) {
-        sendMsg(group, "", "请指定武器名");
-        return;
-    }
-    String weaponName = parts[1].trim();
-    
-    if (!weapons.containsKey(weaponName)) {
-        sendMsg(group, "", "没有这种武器，发送「武器商店」查看可用武器");
-        return;
-    }
-    
-    java.util.Map weapon = (java.util.Map) weapons.get(weaponName);
-    int price = (Integer) weapon.get("price");
-    int currentGold = getGold(group, uin);
-    
-    if (currentGold < price) {
-        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
-        return;
-    }
-    
-    setGold(group, uin, currentGold - price);
-    setStringValue(group, "weapon_" + uin, weaponName);
-    setIntValue(group, "weapon_level_" + uin, 1);
-    
-    String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 成功购买了 " + weaponName);
-}
-
-void handleBuyItem(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split("\\s+", 2);
-    if (parts.length < 2) {
-        sendMsg(group, "", "请指定道具名");
-        return;
-    }
-    String itemName = parts[1].trim();
-    
-    if (!items.containsKey(itemName)) {
-        sendMsg(group, "", "没有这种道具，发送「道具商店」查看可用道具");
-        return;
-    }
-    
-    java.util.Map item = (java.util.Map) items.get(itemName);
-    int price = (Integer) item.get("price");
-    int currentGold = getGold(group, uin);
-    
-    if (currentGold < price) {
-        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
-        return;
-    }
-    
-    setGold(group, uin, currentGold - price);
-    
-    if (itemName.equals("护盾")) {
-        setLongValue(group, "shield_" + uin, System.currentTimeMillis() + 86400000);
-        sendMsg(group, "", "你获得了24小时护盾保护");
-    } else if (itemName.equals("经验卡")) {
-        setLongValue(group, "buff_exp_" + uin, System.currentTimeMillis() + 172800000);
-        sendMsg(group, "", "你获得了48小时经验卡");
-    } else if (itemName.equals("彩票")) {
-        handleLottery(msg);
-    } else if (itemName.equals("存款保险")) {
-        setLongValue(group, "insurance_" + uin, System.currentTimeMillis() + 259200000);
-        sendMsg(group, "", "你获得了72小时存款保险");
-    } else {
-        int count = getIntValue(group, "item_" + itemName + "_" + uin, 0);
-        setIntValue(group, "item_" + itemName + "_" + uin, count + 1);
-        sendMsg(group, "", "购买成功: " + itemName + " x1");
-    }
-}
-
-void handleBuyPet(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split("\\s+", 2);
-    if (parts.length < 2) {
-        sendMsg(group, "", "请指定宠物名");
-        return;
-    }
-    String petName = parts[1].trim();
-    
-    if (!pets.containsKey(petName)) {
-        sendMsg(group, "", "没有这种宠物，发送「宠物商店」查看可用宠物");
-        return;
-    }
-    
-    java.util.Map pet = (java.util.Map) pets.get(petName);
-    int price = (Integer) pet.get("price");
-    int currentGold = getGold(group, uin);
-    
-    if (currentGold < price) {
-        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
-        return;
-    }
-    
-    setGold(group, uin, currentGold - price);
-    setStringValue(group, "pet_" + uin, petName);
-    setIntValue(group, "pet_hunger_" + uin, 100);
-    setLongValue(group, "pet_feed_time_" + uin, System.currentTimeMillis());
-    setIntValue(group, "pet_level_" + uin, 1);
-    
-    String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 成功购买了 " + petName);
-}
-
-void handleBuyHouse(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split("\\s+", 2);
-    if (parts.length < 2) {
-        sendMsg(group, "", "请指定家园名");
-        return;
-    }
-    String houseName = parts[1].trim();
-    
-    if (!houses.containsKey(houseName)) {
-        sendMsg(group, "", "没有这种房产，发送「房产商店」查看可用房产");
-        return;
-    }
-    
-    java.util.Map house = (java.util.Map) houses.get(houseName);
-    int price = (Integer) house.get("price");
-    int currentGold = getGold(group, uin);
-    
-    if (currentGold < price) {
-        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
-        return;
-    }
-    
-    setGold(group, uin, currentGold - price);
-    setStringValue(group, "house_" + uin, houseName);
-    setLongValue(group, "house_income_time_" + uin, System.currentTimeMillis());
-    
-    String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 成功购买了 " + houseName);
-    checkAchievement(group, uin, "house", 1);
-}
-
-void handleChooseCareer(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    String text = msg.MessageContent.trim();
-    String[] parts = text.split("\\s+", 2);
-    if (parts.length < 2) {
-        sendMsg(group, "", "请指定职业名");
-        return;
-    }
-    String careerName = parts[1].trim();
-    
-    if (!careers.containsKey(careerName)) {
-        sendMsg(group, "", "没有这种职业，发送「职业选择」查看可用职业");
-        return;
-    }
-    
-    java.util.Map career = (java.util.Map) careers.get(careerName);
-    int cost = (Integer) career.get("price");
-    int currentGold = getGold(group, uin);
-    
-    if (currentGold < cost) {
-        sendMsg(group, "", "金币不足，需要" + cost + "金币，你只有" + currentGold + "金币");
-        return;
-    }
-    
-    setGold(group, uin, currentGold - cost);
-    setStringValue(group, "career_" + uin, careerName);
-    
-    String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 成功选择了 " + careerName + " 职业");
-}
-
-void handleLottery(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    
-    int winChance = (int)(Math.random() * 100);
-    int prize = 0;
-    
-    if (winChance < 60) {
-        prize = 50;
-    } else if (winChance < 85) {
-        prize = 200;
-    } else if (winChance < 95) {
-        prize = 1000;
-    } else {
-        prize = 5000;
-    }
-    
-    int currentGold = getGold(group, uin);
-    setGold(group, uin, currentGold + prize);
-    
-    String result = "彩票开奖结果: ";
-    if (prize < 200) {
-        result += "安慰奖";
-    } else if (prize < 1000) {
-        result += "三等奖";
-    } else if (prize < 5000) {
-        result += "二等奖";
-    } else {
-        result += "头奖!";
-    }
-    
-    result += " 获得" + prize + "金币!";
-    sendMsg(group, "", result);
-}
-
-void handleFeedPet(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
     
     String pet = getPet(group, uin);
-    if (pet == null) {
-        sendMsg(group, "", "你还没有宠物，无法喂养");
-        return;
+    if (pet != null && pet.equals("招财猫")) {
+        fishValue += getPetIncome(group, uin);
     }
     
-    long now = System.currentTimeMillis();
-    long lastFeed = getLongValue(group, "pet_feed_time_" + uin, 0L);
+    int currentGold = getGold(group, uin);
     
-    if (now - lastFeed < PET_FEED_COOLDOWN) {
-        sendMsg(group, "", "宠物喂养冷却中，请等待" + formatCoolDown(lastFeed + PET_FEED_COOLDOWN - now));
-        return;
+    if (caughtFish.equals("夜七")) {
+        fishValue = -100;
+        setGold(group, uin, currentGold + fishValue);
+    } else if (caughtFish.equals("临江")) {
+        fishValue = 1000;
+        setGold(group, uin, currentGold + fishValue);
+    } else {
+        setGold(group, uin, currentGold + fishValue);
     }
     
-    int foodCount = getIntValue(group, "item_宠物粮_" + uin, 0);
-    if (foodCount <= 0) {
-        sendMsg(group, "", "你没有宠物粮，无法喂养");
-        return;
-    }
-    
-    setIntValue(group, "item_宠物粮_" + uin, foodCount - 1);
-    setIntValue(group, "pet_hunger_" + uin, 100);
-    setLongValue(group, "pet_feed_time_" + uin, now);
+    setLongValue(group, "fishingTime_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
     
     String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 喂养了 " + pet + "，宠物饱食度恢复");
+    
+    StringBuilder result = new StringBuilder();
+    result.append(name).append(" 钓到了 ");
+    
+    if (caughtFish.equals("夜七")) {
+        result.append("夜七！被罚款100金币 😭");
+    } else if (caughtFish.equals("临江")) {
+        result.append("临江！获得1000金币大奖 🎉");
+    } else {
+        result.append(caughtFish).append("，卖出获得").append(fishValue).append("金币");
+    }
+    
+    if (caughtFish.equals("鲸鱼") || caughtFish.equals("蓝鲸")) {
+        result.append("\n鲸鱼，超级大奖");
+    } else if (caughtFish.equals("金龙鱼")) {
+        result.append("\n金龙鱼，太幸运了");
+    } else if (caughtFish.equals("深海热泉")) {
+        result.append("\n发现深海宝藏！");
+    } else if (caughtFish.equals("巨型乌贼")) {
+        result.append("\n深海巨怪！");
+    } else if (caughtFish.equals("独角鲸")) {
+        result.append("\n稀有独角兽般的生物！");
+    } else if (caughtFish.equals("海龙")) {
+        result.append("\n传说中的海龙！");
+    }
+    
+    sendMsg(group, "", result.toString());
+    updateDailyTaskProgress(group, uin, "fish");
+    checkAchievement(group, uin, "fish", fishValue);
 }
 
-void handleCollectHouseIncome(Object msg) {
+void handleDungeon(Object msg) {
     String uin = msg.UserUin;
     String group = msg.GroupUin;
     if (!isEnabled(group)) return;
     
-    String house = getHouse(group, uin);
-    if (house == null || house.isEmpty()) {
-        sendMsg(group, "", "你还没有家园，无法收取收益");
-        return;
-    }
-    
-    if (!houses.containsKey(house)) {
-        sendMsg(group, "", "你的家园配置有误，请联系管理员");
-        return;
-    }
-    
     long now = System.currentTimeMillis();
-    long lastCollect = getLongValue(group, "house_income_time_" + uin, 0L);
+    long lastDungeon = getLongValue(group, "dungeonTime_" + uin, 0L);
+    String cooldownKey = "cd_dungeon_" + uin;
     
-    if (now - lastCollect < HOUSE_INCOME_COOLDOWN) {
-        sendMsg(group, "", "家园收益冷却中，请等待" + formatCoolDown(lastCollect + HOUSE_INCOME_COOLDOWN - now));
+    if (now - lastDungeon < DUNGEON_COOLDOWN) {
+        long remaining = lastDungeon + DUNGEON_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "副本冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
         return;
     }
     
-    java.util.Map houseData = (java.util.Map) houses.get(house);
-    int income = (Integer) houseData.get("income");
+    String[] dungeons = {"巨龙巢穴", "海盗宝藏", "亡灵古墓", "天空之城", "深渊地牢"};
+    String dungeon = dungeons[(int)(Math.random() * dungeons.length)];
     
-    int decorBonus = getIntValue(group, "decor_bonus_" + uin, 0);
-    income = (int)(income * (1 + decorBonus / 100.0));
+    int baseReward = 500;
+    int risk = (int)(Math.random() * 100);
+    int result = 0;
+    
+    String pet = getPet(group, uin);
+    if (pet != null && pet.equals("守护龙")) {
+        baseReward += getPetIncome(group, uin);
+    }
+    
+    boolean hasRevive = hasItem(group, uin, "复活药水");
+    
+    if (risk < 40) {
+        result = -(int)(baseReward * 0.7);
+        if (hasRevive) {
+            result = (int)(result * 0.5);
+            removeItem(group, uin, "复活药水");
+        }
+    } else {
+        result = baseReward + risk * 10;
+    }
     
     int currentGold = getGold(group, uin);
-    setGold(group, uin, currentGold + income);
-    setLongValue(group, "house_income_time_" + uin, now);
+    setGold(group, uin, currentGold + result);
+    setLongValue(group, "dungeonTime_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
     
     String name = getSafeMemberName(group, uin);
-    sendMsg(group, "", name + " 收取了 " + house + " 的收益 " + income + "金币");
+    String outcome = result > 0 ? "成功挑战" : "挑战失败";
+    
+    StringBuilder sb = new StringBuilder();
+    sb.append(name).append(" 探索[").append(dungeon).append("] ").append(outcome).append("，");
+    
+    if (result > 0) {
+        sb.append("获得").append(result).append("金币");
+    } else {
+        sb.append("损失").append(-result).append("金币");
+        if (hasRevive) {
+            sb.append(" (复活药水减少了一半损失)");
+        }
+    }
+    
+    sendMsg(group, "", sb.toString());
+    checkAchievement(group, uin, "dungeon", result);
+}
+
+void handleStock(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastStock = getLongValue(group, "stockTime_" + uin, 0L);
+    String cooldownKey = "cd_stock_" + uin;
+    
+    if (now - lastStock < STOCK_COOLDOWN) {
+        long remaining = lastStock + STOCK_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "股票冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    String[] stocks = {"金币矿业", "鱼市集团", "武器科技", "冒险公会", "魔法商店"};
+    String stock = stocks[(int)(Math.random() * stocks.length)];
+    
+    double change = (Math.random() * 40) - 20;
+    int investment = 1000;
+    
+    int profit = (int)(investment * change / 100);
+    int currentGold = getGold(group, uin);
+    setGold(group, uin, currentGold + profit);
+    setLongValue(group, "stockTime_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
+    
+    String name = getSafeMemberName(group, uin);
+    String trend = profit > 0 ? "上涨" : "下跌";
+    
+    sendMsg(group, "", name + " 投资了" + stock + "，股票" + trend + Math.abs(change) + "%，" +
+            (profit > 0 ? "赚取" : "亏损") + Math.abs(profit) + "金币");
+    checkAchievement(group, uin, "stock", profit);
 }
 
 void handleArenaChallenge(Object msg) {
-    String uin = msg.UserUin;
     String group = msg.GroupUin;
+    String uin = msg.UserUin;
+    
     if (!isEnabled(group)) return;
     
     long now = System.currentTimeMillis();
     long lastArena = getLongValue(group, "arena_time_" + uin, 0L);
+    String cooldownKey = "cd_arena_" + uin;
     
     if (now - lastArena < ARENA_COOLDOWN) {
-        sendMsg(group, "", "竞技场冷却中，请等待" + formatCoolDown(lastArena + ARENA_COOLDOWN - now));
+        long remaining = lastArena + ARENA_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "竞技场冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
         return;
     }
     
@@ -1322,9 +1020,337 @@ void handleArenaChallenge(Object msg) {
     }
     
     setLongValue(group, "arena_time_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
     sendMsg(group, "", result.toString());
 }
 
+void handleFeedPet(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String pet = getPet(group, uin);
+    if (pet == null) {
+        sendMsg(group, "", "你还没有宠物，无法喂养");
+        return;
+    }
+    
+    long now = System.currentTimeMillis();
+    long lastFeed = getLongValue(group, "pet_feed_time_" + uin, 0L);
+    String cooldownKey = "cd_petfeed_" + uin;
+    
+    if (now - lastFeed < PET_FEED_COOLDOWN) {
+        long remaining = lastFeed + PET_FEED_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "宠物喂养冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    int foodCount = getIntValue(group, "item_宠物粮_" + uin, 0);
+    if (foodCount <= 0) {
+        sendMsg(group, "", "你没有宠物粮，无法喂养");
+        return;
+    }
+    
+    setIntValue(group, "item_宠物粮_" + uin, foodCount - 1);
+    setIntValue(group, "pet_hunger_" + uin, 100);
+    setLongValue(group, "pet_feed_time_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
+    
+    String name = getSafeMemberName(group, uin);
+    sendMsg(group, "", name + " 喂养了 " + pet + "，宠物饱食度恢复");
+}
+
+void handleCollectHouseIncome(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String house = getHouse(group, uin);
+    if (house == null || house.isEmpty()) {
+        sendMsg(group, "", "你还没有家园，无法收取收益");
+        return;
+    }
+    
+    if (!houses.containsKey(house)) {
+        sendMsg(group, "", "你的家园配置有误，请联系管理员");
+        return;
+    }
+    
+    long now = System.currentTimeMillis();
+    long lastCollect = getLongValue(group, "house_income_time_" + uin, 0L);
+    String cooldownKey = "cd_house_" + uin;
+    
+    if (now - lastCollect < HOUSE_INCOME_COOLDOWN) {
+        long remaining = lastCollect + HOUSE_INCOME_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "家园收益冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    java.util.Map houseData = (java.util.Map) houses.get(house);
+    int income = (Integer) houseData.get("income");
+    
+    int decorBonus = getIntValue(group, "decor_bonus_" + uin, 0);
+    income = (int)(income * (1 + decorBonus / 100.0));
+    
+    int currentGold = getGold(group, uin);
+    setGold(group, uin, currentGold + income);
+    setLongValue(group, "house_income_time_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
+    
+    String name = getSafeMemberName(group, uin);
+    sendMsg(group, "", name + " 收取了 " + house + " 的收益 " + income + "金币");
+}
+
+void handleUpgradeWeapon(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastUpgrade = getLongValue(group, "upgrade_time_" + uin, 0L);
+    String cooldownKey = "cd_upgrade_" + uin;
+    
+    if (now - lastUpgrade < EQUIP_UPGRADE_COOLDOWN) {
+        long remaining = lastUpgrade + EQUIP_UPGRADE_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "强化冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    String weaponName = getStringValue(group, "weapon_" + uin, "");
+    if (weaponName.isEmpty()) {
+        sendMsg(group, "", "你还没有武器，无法强化");
+        return;
+    }
+    
+    int stoneCount = getIntValue(group, "item_强化石_" + uin, 0);
+    if (stoneCount < 1) {
+        sendMsg(group, "", "需要强化石x1");
+        return;
+    }
+    
+    java.util.Map weapon = (java.util.Map) weapons.get(weaponName);
+    int currentLevel = getIntValue(group, "weapon_level_" + uin, 1);
+    int maxLevel = (Integer) weapon.get("maxLevel");
+    
+    if (currentLevel >= maxLevel) {
+        sendMsg(group, "", "武器已达到最高强化等级");
+        return;
+    }
+    
+    double successRate = 1.0 - (currentLevel * 0.05);
+    if (successRate < 0.3) successRate = 0.3;
+    
+    boolean success = Math.random() < successRate;
+    
+    removeItem(group, uin, "强化石");
+    setLongValue(group, "upgrade_time_" + uin, now);
+    setBooleanValue(group, cooldownKey, false);
+    
+    String name = getSafeMemberName(group, uin);
+    
+    if (success) {
+        setIntValue(group, "weapon_level_" + uin, currentLevel + 1);
+        
+        int successes = getIntValue(group, "upgrade_success_" + uin, 0);
+        setIntValue(group, "upgrade_success_" + uin, successes + 1);
+        
+        sendMsg(group, "", name + " 成功将 " + weaponName + " 强化到 +" + (currentLevel + 1) + "!");
+    } else {
+        if (currentLevel > 1) {
+            setIntValue(group, "weapon_level_" + uin, currentLevel - 1);
+            sendMsg(group, "", name + " 强化失败！" + weaponName + " 降级到 +" + (currentLevel - 1) + " 😭");
+        } else {
+            sendMsg(group, "", name + " 强化失败！幸运的是武器没有降级");
+        }
+    }
+}
+
+void handlePetBattle(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastBattle = getLongValue(group, "pet_battle_time_" + uin, 0L);
+    String cooldownKey = "cd_petbattle_" + uin;
+    
+    if (now - lastBattle < PET_BATTLE_COOLDOWN) {
+        long remaining = lastBattle + PET_BATTLE_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "宠物对战冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    String pet = getPet(group, uin);
+    if (pet == null || pet.isEmpty() || !pets.containsKey(pet)) {
+        sendMsg(group, "", "你还没有宠物，无法对战");
+        return;
+    }
+    
+    if (msg.mAtList == null || msg.mAtList.isEmpty()) {
+        sendMsg(group, "", "请@要对战的玩家");
+        return;
+    }
+    
+    String opponentUin = (String) msg.mAtList.get(0);
+    String opponentPet = getPet(group, opponentUin);
+    if (opponentPet == null || opponentPet.isEmpty() || !pets.containsKey(opponentPet)) {
+        sendMsg(group, "", "对方没有宠物");
+        return;
+    }
+    
+    java.util.Map yourPet = (java.util.Map) pets.get(pet);
+    java.util.Map oppPet = (java.util.Map) pets.get(opponentPet);
+    if (yourPet == null || oppPet == null) {
+        sendMsg(group, "", "宠物数据错误，无法对战");
+        return;
+    }
+    
+    int yourLevel = getIntValue(group, "pet_level_" + uin, 1);
+    int oppLevel = getIntValue(group, "pet_level_" + opponentUin, 1);
+    
+    int yourHP = (Integer) yourPet.get("hp") * yourLevel;
+    int yourAttack = (Integer) yourPet.get("attack") * yourLevel;
+    int yourDefense = (Integer) yourPet.get("defense") * yourLevel;
+    
+    int oppHP = (Integer) oppPet.get("hp") * oppLevel;
+    int oppAttack = (Integer) oppPet.get("attack") * oppLevel;
+    int oppDefense = (Integer) oppPet.get("defense") * oppLevel;
+    
+    StringBuilder battleLog = new StringBuilder();
+    battleLog.append("🐾 宠物对战开始 🐾\n");
+    battleLog.append(getSafeMemberName(group, uin)).append(" 的 ").append(pet).append(" Lv.").append(yourLevel)
+             .append(" vs ")
+             .append(getSafeMemberName(group, opponentUin)).append(" 的 ").append(opponentPet).append(" Lv.").append(oppLevel).append("\n");
+    
+    int round = 1;
+    while (yourHP > 0 && oppHP > 0 && round <= 10) {
+        int yourDamage = yourAttack - oppDefense;
+        if (yourDamage < 1) yourDamage = 1;
+        oppHP -= yourDamage;
+        
+        int oppDamage = oppAttack - yourDefense;
+        if (oppDamage < 1) oppDamage = 1;
+        yourHP -= oppDamage;
+        
+        battleLog.append("回合").append(round).append(": ")
+                 .append(pet).append(" 造成 ").append(yourDamage).append(" 伤害, ")
+                 .append(opponentPet).append(" 造成 ").append(oppDamage).append(" 伤害\n");
+        round++;
+    }
+    
+    boolean youWin = oppHP <= 0;
+    int reward = 300 + (int)(Math.random() * 201);
+    
+    if (youWin) {
+        battleLog.append(pet).append(" 获胜！");
+        setGold(group, uin, getGold(group, uin) + reward);
+        battleLog.append(getSafeMemberName(group, uin)).append(" 获得 ").append(reward).append("金币");
+    } else {
+        battleLog.append(opponentPet).append(" 获胜！");
+        setGold(group, opponentUin, getGold(group, opponentUin) + reward);
+        battleLog.append(getSafeMemberName(group, opponentUin)).append(" 获得 ").append(reward).append("金币");
+    }
+    
+    setLongValue(group, "pet_battle_time_" + uin, now);
+    setLongValue(group, "pet_battle_time_" + opponentUin, now);
+    setBooleanValue(group, cooldownKey, false);
+    sendMsg(group, "", battleLog.toString());
+}
+
+void handleTeamDungeon(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastDungeon = getLongValue(group, "team_dungeon_time_" + uin, 0L);
+    String cooldownKey = "cd_teamdungeon_" + uin;
+    
+    if (now - lastDungeon < TEAM_DUNGEON_COOLDOWN) {
+        long remaining = lastDungeon + TEAM_DUNGEON_COOLDOWN - now;
+        if (!getBooleanValue(group, cooldownKey, false)) {
+            sendMsg(group, "", "团队副本冷却中，请等待" + formatCoolDown(remaining));
+            setBooleanValue(group, cooldownKey, true);
+        }
+        return;
+    }
+    
+    if (msg.mAtList == null || msg.mAtList.size() < 2) {
+        sendMsg(group, "", "请@至少2名队友");
+        return;
+    }
+    
+    java.util.List team = new java.util.ArrayList();
+    team.add(uin);
+    team.addAll(msg.mAtList);
+    
+    if (team.size() > 5) {
+        sendMsg(group, "", "团队最多5人");
+        return;
+    }
+    
+    int totalPower = 0;
+    for (Object memberUinObj : team) {
+        String memberUin = (String) memberUinObj;
+        totalPower += calculateCombatPower(group, memberUin);
+    }
+    
+    String[] dungeons = {"巨龙巢穴", "亡灵要塞", "深渊魔窟", "天空圣殿"};
+    String dungeon = dungeons[(int)(Math.random() * dungeons.length)];
+    
+    int baseReward = 2000;
+    int difficulty = (int)(Math.random() * 100) + 1;
+    boolean success = totalPower > difficulty * 50;
+    
+    StringBuilder result = new StringBuilder();
+    result.append("👥 团队副本挑战: ").append(dungeon).append("\n");
+    result.append("团队成员: ");
+    for (int i = 0; i < team.size(); i++) {
+        String memberUin = (String) team.get(i);
+        result.append(getSafeMemberName(group, memberUin));
+        if (i < team.size() - 1) {
+            result.append(", ");
+        }
+    }
+    result.append("\n团队总战力: ").append(totalPower).append("\n");
+    
+    if (success) {
+        int reward = baseReward + totalPower;
+        result.append("挑战成功！每人获得").append(reward).append("金币");
+        
+        for (Object memberUinObj : team) {
+            String memberUin = (String) memberUinObj;
+            setGold(group, memberUin, getGold(group, memberUin) + reward);
+            setLongValue(group, "team_dungeon_time_" + memberUin, now);
+            setBooleanValue(group, "cd_teamdungeon_" + memberUin, false);
+            
+            int count = getIntValue(group, "team_dungeon_" + memberUin, 0);
+            setIntValue(group, "team_dungeon_" + memberUin, count + 1);
+        }
+    } else {
+        result.append("挑战失败！下次再接再厉");
+        for (Object memberUinObj : team) {
+            String memberUin = (String) memberUinObj;
+            setLongValue(group, "team_dungeon_time_" + memberUin, now);
+            setBooleanValue(group, "cd_teamdungeon_" + memberUin, false);
+        }
+    }
+    
+    sendMsg(group, "", result.toString());
+}
+    
 int calculateCombatPower(String group, String uin) {
     int power = 0;
     
@@ -1401,179 +1427,6 @@ void handleMyWeapon(Object msg) {
     }
     
     sendMsg(group, "", sb.toString());
-}
-
-void handleFishing(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastFishing = getLongValue(group, "fishingTime_" + uin, 0L);
-    
-    if (now - lastFishing < FISHING_COOLDOWN) {
-        sendMsg(group, "", "钓鱼冷却中，请等待" + formatCoolDown(lastFishing + FISHING_COOLDOWN - now));
-        return;
-    }
-    
-    Object[] fishNames = fishTypes.keySet().toArray();
-    String caughtFish = (String) fishNames[(int)(Math.random() * fishNames.length)];
-    java.util.Map fish = (java.util.Map) fishTypes.get(caughtFish);
-    
-    int minValue = (Integer) fish.get("min");
-    int maxValue = (Integer) fish.get("max");
-    int fishValue = minValue + (int)(Math.random() * (maxValue - minValue + 1));
-    
-    if (hasItem(group, uin, "高级鱼竿")) {
-        fishValue = (int)(fishValue * 1.5);
-    }
-    
-    String career = getCareer(group, uin);
-    if ("渔夫".equals(career)) {
-        fishValue = (int)(fishValue * 1.4);
-    }
-    
-    String pet = getPet(group, uin);
-    if (pet != null && pet.equals("招财猫")) {
-        fishValue += getPetIncome(group, uin);
-    }
-    
-    int currentGold = getGold(group, uin);
-    
-    if (caughtFish.equals("夜七")) {
-        fishValue = -100;
-        setGold(group, uin, currentGold + fishValue);
-    } else if (caughtFish.equals("临江")) {
-        fishValue = 1000;
-        setGold(group, uin, currentGold + fishValue);
-    } else {
-        setGold(group, uin, currentGold + fishValue);
-    }
-    
-    setLongValue(group, "fishingTime_" + uin, now);
-    
-    String name = getSafeMemberName(group, uin);
-    
-    StringBuilder result = new StringBuilder();
-    result.append(name).append(" 钓到了 ");
-    
-    if (caughtFish.equals("夜七")) {
-        result.append("夜七！被罚款100金币 😭");
-    } else if (caughtFish.equals("临江")) {
-        result.append("临江！获得1000金币大奖 🎉");
-    } else {
-        result.append(caughtFish).append("，卖出获得").append(fishValue).append("金币");
-    }
-    
-    if (caughtFish.equals("鲸鱼") || caughtFish.equals("蓝鲸")) {
-        result.append("\n鲸鱼，超级大奖");
-    } else if (caughtFish.equals("金龙鱼")) {
-        result.append("\n金龙鱼，太幸运了");
-    } else if (caughtFish.equals("深海热泉")) {
-        result.append("\n发现深海宝藏！");
-    } else if (caughtFish.equals("巨型乌贼")) {
-        result.append("\n深海巨怪！");
-    } else if (caughtFish.equals("独角鲸")) {
-        result.append("\n稀有独角兽般的生物！");
-    } else if (caughtFish.equals("海龙")) {
-        result.append("\n传说中的海龙！");
-    }
-    
-    sendMsg(group, "", result.toString());
-    updateDailyTaskProgress(group, uin, "fish");
-    checkAchievement(group, uin, "fish", fishValue);
-}
-
-void handleDungeon(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastDungeon = getLongValue(group, "dungeonTime_" + uin, 0L);
-    
-    if (now - lastDungeon < DUNGEON_COOLDOWN) {
-        sendMsg(group, "", "副本冷却中，请等待" + formatCoolDown(lastDungeon + DUNGEON_COOLDOWN - now));
-        return;
-    }
-    
-    String[] dungeons = {"巨龙巢穴", "海盗宝藏", "亡灵古墓", "天空之城", "深渊地牢"};
-    String dungeon = dungeons[(int)(Math.random() * dungeons.length)];
-    
-    int baseReward = 500;
-    int risk = (int)(Math.random() * 100);
-    int result = 0;
-    
-    String pet = getPet(group, uin);
-    if (pet != null && pet.equals("守护龙")) {
-        baseReward += getPetIncome(group, uin);
-    }
-    
-    boolean hasRevive = hasItem(group, uin, "复活药水");
-    
-    if (risk < 40) {
-        result = -(int)(baseReward * 0.7);
-        if (hasRevive) {
-            result = (int)(result * 0.5);
-            removeItem(group, uin, "复活药水");
-        }
-    } else {
-        result = baseReward + risk * 10;
-    }
-    
-    int currentGold = getGold(group, uin);
-    setGold(group, uin, currentGold + result);
-    setLongValue(group, "dungeonTime_" + uin, now);
-    
-    String name = getSafeMemberName(group, uin);
-    String outcome = result > 0 ? "成功挑战" : "挑战失败";
-    
-    StringBuilder sb = new StringBuilder();
-    sb.append(name).append(" 探索[").append(dungeon).append("] ").append(outcome).append("，");
-    
-    if (result > 0) {
-        sb.append("获得").append(result).append("金币");
-    } else {
-        sb.append("损失").append(-result).append("金币");
-        if (hasRevive) {
-            sb.append(" (复活药水减少了一半损失)");
-        }
-    }
-    
-    sendMsg(group, "", sb.toString());
-    checkAchievement(group, uin, "dungeon", result);
-}
-
-void handleStock(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastStock = getLongValue(group, "stockTime_" + uin, 0L);
-    
-    if (now - lastStock < STOCK_COOLDOWN) {
-        sendMsg(group, "", "股票冷却中，请等待" + formatCoolDown(lastStock + STOCK_COOLDOWN - now));
-        return;
-    }
-    
-    String[] stocks = {"金币矿业", "鱼市集团", "武器科技", "冒险公会", "魔法商店"};
-    String stock = stocks[(int)(Math.random() * stocks.length)];
-    
-    double change = (Math.random() * 40) - 20;
-    int investment = 1000;
-    
-    int profit = (int)(investment * change / 100);
-    int currentGold = getGold(group, uin);
-    setGold(group, uin, currentGold + profit);
-    setLongValue(group, "stockTime_" + uin, now);
-    
-    String name = getSafeMemberName(group, uin);
-    String trend = profit > 0 ? "上涨" : "下跌";
-    
-    sendMsg(group, "", name + " 投资了" + stock + "，股票" + trend + Math.abs(change) + "%，" +
-            (profit > 0 ? "赚取" : "亏损") + Math.abs(profit) + "金币");
-    checkAchievement(group, uin, "stock", profit);
 }
 
 void handleProfile(Object msg) {
@@ -1826,7 +1679,7 @@ void handleRedPacket(Object msg) {
     
     StringBuilder result = new StringBuilder();
     result.append(getSafeMemberName(group, uin)).append(" 发送了红包\n");
-    result.append("总金额: ").append(amount).append("金币 | 份数: ").append(count).append("\n");
+    result.append("总金额: ").append(amount).append("金币 | 份马 数: ").append(count).append("\n");
     
     for (int i = 0; i < count; i++) {
         String receiverUin = (String) receivers.get(i);
@@ -2329,156 +2182,6 @@ void handleBuyMarket(Object msg) {
     setIntValue(group, "market_sales_" + uin, sales + 1);
 }
 
-void handleUpgradeWeapon(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastUpgrade = getLongValue(group, "upgrade_time_" + uin, 0L);
-    
-    if (now - lastUpgrade < EQUIP_UPGRADE_COOLDOWN) {
-        sendMsg(group, "", "强化冷却中，请等待" + formatCoolDown(lastUpgrade + EQUIP_UPGRADE_COOLDOWN - now));
-        return;
-    }
-    
-    String weaponName = getStringValue(group, "weapon_" + uin, "");
-    if (weaponName.isEmpty()) {
-        sendMsg(group, "", "你还没有武器，无法强化");
-        return;
-    }
-    
-    int stoneCount = getIntValue(group, "item_强化石_" + uin, 0);
-    if (stoneCount < 1) {
-        sendMsg(group, "", "需要强化石x1");
-        return;
-    }
-    
-    java.util.Map weapon = (java.util.Map) weapons.get(weaponName);
-    int currentLevel = getIntValue(group, "weapon_level_" + uin, 1);
-    int maxLevel = (Integer) weapon.get("maxLevel");
-    
-    if (currentLevel >= maxLevel) {
-        sendMsg(group, "", "武器已达到最高强化等级");
-        return;
-    }
-    
-    double successRate = 1.0 - (currentLevel * 0.05);
-    if (successRate < 0.3) successRate = 0.3;
-    
-    boolean success = Math.random() < successRate;
-    
-    removeItem(group, uin, "强化石");
-    setLongValue(group, "upgrade_time_" + uin, now);
-    
-    String name = getSafeMemberName(group, uin);
-    
-    if (success) {
-        setIntValue(group, "weapon_level_" + uin, currentLevel + 1);
-        
-        int successes = getIntValue(group, "upgrade_success_" + uin, 0);
-        setIntValue(group, "upgrade_success_" + uin, successes + 1);
-        
-        sendMsg(group, "", name + " 成功将 " + weaponName + " 强化到 +" + (currentLevel + 1) + "!");
-    } else {
-        if (currentLevel > 1) {
-            setIntValue(group, "weapon_level_" + uin, currentLevel - 1);
-            sendMsg(group, "", name + " 强化失败！" + weaponName + " 降级到 +" + (currentLevel - 1) + " 😭");
-        } else {
-            sendMsg(group, "", name + " 强化失败！幸运的是武器没有降级");
-        }
-    }
-}
-
-void handlePetBattle(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastBattle = getLongValue(group, "pet_battle_time_" + uin, 0L);
-    
-    if (now - lastBattle < PET_BATTLE_COOLDOWN) {
-        sendMsg(group, "", "宠物对战冷却中，请等待" + formatCoolDown(lastBattle + PET_BATTLE_COOLDOWN - now));
-        return;
-    }
-    
-    String pet = getPet(group, uin);
-    if (pet == null || pet.isEmpty() || !pets.containsKey(pet)) {
-        sendMsg(group, "", "你还没有宠物，无法对战");
-        return;
-    }
-    
-    if (msg.mAtList == null || msg.mAtList.isEmpty()) {
-        sendMsg(group, "", "请@要对战的玩家");
-        return;
-    }
-    
-    String opponentUin = (String) msg.mAtList.get(0);
-    String opponentPet = getPet(group, opponentUin);
-    if (opponentPet == null || opponentPet.isEmpty() || !pets.containsKey(opponentPet)) {
-        sendMsg(group, "", "对方没有宠物");
-        return;
-    }
-    
-    java.util.Map yourPet = (java.util.Map) pets.get(pet);
-    java.util.Map oppPet = (java.util.Map) pets.get(opponentPet);
-    if (yourPet == null || oppPet == null) {
-        sendMsg(group, "", "宠物数据错误，无法对战");
-        return;
-    }
-    
-    int yourLevel = getIntValue(group, "pet_level_" + uin, 1);
-    int oppLevel = getIntValue(group, "pet_level_" + opponentUin, 1);
-    
-    int yourHP = (Integer) yourPet.get("hp") * yourLevel;
-    int yourAttack = (Integer) yourPet.get("attack") * yourLevel;
-    int yourDefense = (Integer) yourPet.get("defense") * yourLevel;
-    
-    int oppHP = (Integer) oppPet.get("hp") * oppLevel;
-    int oppAttack = (Integer) oppPet.get("attack") * oppLevel;
-    int oppDefense = (Integer) oppPet.get("defense") * oppLevel;
-    
-    StringBuilder battleLog = new StringBuilder();
-    battleLog.append("🐾 宠物对战开始 🐾\n");
-    battleLog.append(getSafeMemberName(group, uin)).append(" 的 ").append(pet).append(" Lv.").append(yourLevel)
-             .append(" vs ")
-             .append(getSafeMemberName(group, opponentUin)).append(" 的 ").append(opponentPet).append(" Lv.").append(oppLevel).append("\n");
-    
-    int round = 1;
-    while (yourHP > 0 && oppHP > 0 && round <= 10) {
-        int yourDamage = yourAttack - oppDefense;
-        if (yourDamage < 1) yourDamage = 1;
-        oppHP -= yourDamage;
-        
-        int oppDamage = oppAttack - yourDefense;
-        if (oppDamage < 1) oppDamage = 1;
-        yourHP -= oppDamage;
-        
-        battleLog.append("回合").append(round).append(": ")
-                 .append(pet).append(" 造成 ").append(yourDamage).append(" 伤害, ")
-                 .append(opponentPet).append(" 造成 ").append(oppDamage).append(" 伤害\n");
-        round++;
-    }
-    
-    boolean youWin = oppHP <= 0;
-    int reward = 300 + (int)(Math.random() * 201);
-    
-    if (youWin) {
-        battleLog.append(pet).append(" 获胜！");
-        setGold(group, uin, getGold(group, uin) + reward);
-        battleLog.append(getSafeMemberName(group, uin)).append(" 获得 ").append(reward).append("金币");
-    } else {
-        battleLog.append(opponentPet).append(" 获胜！");
-        setGold(group, opponentUin, getGold(group, opponentUin) + reward);
-        battleLog.append(getSafeMemberName(group, opponentUin)).append(" 获得 ").append(reward).append("金币");
-    }
-    
-    setLongValue(group, "pet_battle_time_" + uin, now);
-    setLongValue(group, "pet_battle_time_" + opponentUin, now);
-    sendMsg(group, "", battleLog.toString());
-}
-
 void handleAddDecor(Object msg) {
     String uin = msg.UserUin;
     String group = msg.GroupUin;
@@ -2564,81 +2267,6 @@ void handleFestivalEvent(Object msg) {
             setLongValue(group, "buff_exp_" + uin, System.currentTimeMillis() + 86400000);
             result.append("获得24小时经验加成").append(expBonus).append("%");
             break;
-    }
-    
-    sendMsg(group, "", result.toString());
-}
-
-void handleTeamDungeon(Object msg) {
-    String uin = msg.UserUin;
-    String group = msg.GroupUin;
-    if (!isEnabled(group)) return;
-    
-    long now = System.currentTimeMillis();
-    long lastDungeon = getLongValue(group, "team_dungeon_time_" + uin, 0L);
-    
-    if (now - lastDungeon < TEAM_DUNGEON_COOLDOWN) {
-        sendMsg(group, "", "团队副本冷却中，请等待" + formatCoolDown(lastDungeon + TEAM_DUNGEON_COOLDOWN - now));
-        return;
-    }
-    
-    if (msg.mAtList == null || msg.mAtList.size() < 2) {
-        sendMsg(group, "", "请@至少2名队友");
-        return;
-    }
-    
-    java.util.List team = new java.util.ArrayList();
-    team.add(uin);
-    team.addAll(msg.mAtList);
-    
-    if (team.size() > 5) {
-        sendMsg(group, "", "团队最多5人");
-        return;
-    }
-    
-    int totalPower = 0;
-    for (Object memberUinObj : team) {
-        String memberUin = (String) memberUinObj;
-        totalPower += calculateCombatPower(group, memberUin);
-    }
-    
-    String[] dungeons = {"巨龙巢穴", "亡灵要塞", "深渊魔窟", "天空圣殿"};
-    String dungeon = dungeons[(int)(Math.random() * dungeons.length)];
-    
-    int baseReward = 2000;
-    int difficulty = (int)(Math.random() * 100) + 1;
-    boolean success = totalPower > difficulty * 50;
-    
-    StringBuilder result = new StringBuilder();
-    result.append("👥 团队副本挑战: ").append(dungeon).append("\n");
-    result.append("团队成员: ");
-    for (int i = 0; i < team.size(); i++) {
-        String memberUin = (String) team.get(i);
-        result.append(getSafeMemberName(group, memberUin));
-        if (i < team.size() - 1) {
-            result.append(", ");
-        }
-    }
-    result.append("\n团队总战力: ").append(totalPower).append("\n");
-    
-    if (success) {
-        int reward = baseReward + totalPower;
-        result.append("挑战成功！每人获得").append(reward).append("金币");
-        
-        for (Object memberUinObj : team) {
-            String memberUin = (String) memberUinObj;
-            setGold(group, memberUin, getGold(group, memberUin) + reward);
-            setLongValue(group, "team_dungeon_time_" + memberUin, now);
-            
-            int count = getIntValue(group, "team_dungeon_" + memberUin, 0);
-            setIntValue(group, "team_dungeon_" + memberUin, count + 1);
-        }
-    } else {
-        result.append("挑战失败！下次再接再厉");
-        for (Object memberUinObj : team) {
-            String memberUin = (String) memberUinObj;
-            setLongValue(group, "team_dungeon_time_" + memberUin, now);
-        }
     }
     
     sendMsg(group, "", result.toString());
@@ -2884,6 +2512,7 @@ void handleRoulette(Object msg) {
     if (result == 0) {
         color = "绿色";
         win = cost * 35;
+        result.append("恭喜一等奖！获得").append(win).append("金币");
     } else if (result % 2 == 0) {
         color = "红色";
         win = cost * 2;
@@ -3313,6 +2942,419 @@ void handleGoldLottery(Object msg) {
 void updateDailyTaskProgress(String group, String uin, String taskType) {
 }
 
+void handleSign(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastSign = getLongValue(group, "signTime_" + uin, 0L);
+    
+    if (now - lastSign < DAILY_TASK_RESET) {
+        long remaining = lastSign + DAILY_TASK_RESET - now;
+        sendMsg(group, "", "签到冷却中，请等待" + formatCoolDown(remaining));
+        return;
+    }
+    
+    int baseReward = 100;
+    
+    int consecutiveDays = getIntValue(group, "consecutiveDays_" + uin, 0);
+    consecutiveDays++;
+    setIntValue(group, "consecutiveDays_" + uin, consecutiveDays);
+    
+    int bonus = 0;
+    if (consecutiveDays >= 3) {
+        bonus = consecutiveDays * 10;
+    }
+    
+    String pet = getPet(group, uin);
+    if (pet != null && pet.equals("幸运兔")) {
+        bonus += getPetIncome(group, uin);
+    }
+    
+    int totalReward = baseReward + bonus;
+    
+    int currentGold = getGold(group, uin);
+    setGold(group, uin, currentGold + totalReward);
+    
+    setLongValue(group, "signTime_" + uin, now);
+    
+    String name = getSafeMemberName(group, uin);
+    String message = name + " 签到成功！获得" + totalReward + "金币";
+    
+    if (consecutiveDays > 1) {
+        message += "\n连续签到: " + consecutiveDays + "天";
+    }
+    
+    if (bonus > 0) {
+        message += "\n额外奖励: " + bonus + "金币";
+    }
+    
+    sendMsg(group, "", message);
+    updateDailyTaskProgress(group, uin, "sign");
+}
+
+void handleWeaponShop(Object msg) {
+    String group = msg.GroupUin;
+    StringBuilder sb = new StringBuilder();
+    sb.append("武器商店:\n");
+    sb.append("使用「购买武器 [武器名]」购买\n");
+    sb.append("----------------------------\n");
+    
+    for (Object weaponNameObj : weapons.keySet()) {
+        String weaponName = (String) weaponNameObj;
+        java.util.Map weaponData = (java.util.Map) weapons.get(weaponName);
+        int price = (Integer) weaponData.get("price");
+        int attack = (Integer) weaponData.get("attack");
+        int defense = (Integer) weaponData.get("defense");
+        
+        sb.append(weaponName)
+          .append(" | 价格: ").append(price)
+          .append(" | 攻击: ").append(attack)
+          .append(" | 防御: ").append(defense)
+          .append("\n");
+    }
+    
+    sendMsg(group, "", sb.toString());
+}
+
+void handleTransfer(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    long now = System.currentTimeMillis();
+    long lastTransfer = getLongValue(group, "transferTime_" + uin, 0L);
+    
+    if (now - lastTransfer < TRANSFER_COOLDOWN) {
+        sendMsg(group, "", "转账冷却中，请等待" + formatCoolDown(lastTransfer + TRANSFER_COOLDOWN - now));
+        return;
+    }
+    
+    if (msg.mAtList == null || msg.mAtList.isEmpty()) {
+        sendMsg(group, "", "请@转账对象");
+        return;
+    }
+    
+    String targetUin = (String) msg.mAtList.get(0);
+    if (targetUin.equals(uin)) {
+        sendMsg(group, "", "不能转账给自己");
+        return;
+    }
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split(" ");
+    int amount = 0;
+    
+    try {
+        for (String part : parts) {
+            if (part.matches("\\d+")) {
+                amount = Integer.parseInt(part);
+                break;
+            }
+        }
+    } catch (Exception e) {
+        sendMsg(group, "", "请指定有效的金币数量");
+        return;
+    }
+    
+    if (amount <= 0) {
+        sendMsg(group, "", "转账金额必须大于0");
+        return;
+    }
+    
+    int senderGold = getGold(group, uin);
+    if (senderGold < amount) {
+        sendMsg(group, "", "你的金币不足");
+        return;
+    }
+    
+    int receiverGold = getGold(group, targetUin);
+    setGold(group, uin, senderGold - amount);
+    setGold(group, targetUin, receiverGold + amount);
+    
+    setLongValue(group, "transferTime_" + uin, now);
+    
+    String senderName = getSafeMemberName(group, uin);
+    String receiverName = getSafeMemberName(group, targetUin);
+    sendMsg(group, "", senderName + " 转账 " + amount + "金币给 " + receiverName);
+}
+
+void handleBuyWeapon(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+        sendMsg(group, "", "请指定武器名");
+        return;
+    }
+    String weaponName = parts[1].trim();
+    
+    if (!weapons.containsKey(weaponName)) {
+        sendMsg(group, "", "武器商店没有这种武器");
+        return;
+    }
+    
+    java.util.Map weapon = (java.util.Map) weapons.get(weaponName);
+    int price = (Integer) weapon.get("price");
+    int currentGold = getGold(group, un);
+    
+    if (currentGold < price) {
+        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
+        return;
+    }
+    
+    setGold(group, uin, currentGold - price);
+    setStringValue(group, "weapon_" + uin, weaponName);
+    setIntValue(group, "weapon_level_" + uin, 1);
+    
+    sendMsg(group, "", "成功购买武器: " + weaponName);
+}
+
+void handleBuyItem(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+        sendMsg(group, "", "请指定道具名");
+        return;
+    }
+    String itemName = parts[1].trim();
+    
+    if (!items.containsKey(itemName)) {
+        sendMsg(group, "", "道具商店没有这种道具");
+        return;
+    }
+    
+    java.util.Map item = (java.util.Map) items.get(itemName);
+    int price = (Integer) item.get("price");
+    int currentGold = getGold(group, uin);
+    
+    if (currentGold < price) {
+        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
+        return;
+    }
+    
+    setGold(group, uin, currentGold - price);
+    int count = getIntValue(group, "item_" + itemName + "_" + uin, 0);
+    setIntValue(group, "item_" + itemName + "_" + uin, count + 1);
+    
+    sendMsg(group, "", "购买成功: " + itemName + " x1");
+}
+
+void handleBuyPet(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+        sendMsg(group, "", "请指定宠物名");
+        return;
+    }
+    String petName = parts[1].trim();
+    
+    if (!pets.containsKey(petName)) {
+        sendMsg(group, "", "宠物商店没有这种宠物");
+        return;
+    }
+    
+    java.util.Map pet = (java.util.Map) pets.get(petName);
+    int price = (Integer) pet.get("price");
+    int currentGold = getGold(group, uin);
+    
+    if (currentGold < price) {
+        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
+        return;
+    }
+    
+    if (getPet(group, uin) != null) {
+        sendMsg(group, "", "你已有宠物，无法购买新宠物");
+        return;
+    }
+    
+    setGold(group, uin, currentGold - price);
+    setStringValue(group, "pet_" + uin, petName);
+    setIntValue(group, "pet_level_" + uin, 1);
+    setIntValue(group, "pet_hunger_" + uin, 100);
+    
+    sendMsg(group, "", "成功购买宠物: " + petName);
+}
+
+void handleBuyHouse(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+        sendMsg(group, "", "请指定家园名");
+        return;
+    }
+    String houseName = parts[1].trim();
+    
+    if (!houses.containsKey(houseName)) {
+        sendMsg(group, "", "房产商店没有这种家园");
+        return;
+    }
+    
+    if (getHouse(group, uin) != null) {
+        sendMsg(group, "", "你已有家园，无法购买新家园");
+        return;
+    }
+    
+    java.util.Map house = (java.util.Map) houses.get(houseName);
+    int price = (Integer) house.get("price");
+    int currentGold = getGold(group, uin);
+    
+    if (currentGold < price) {
+        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
+        return;
+    }
+    
+    setGold(group, uin, currentGold - price);
+    setStringValue(group, "house_" + uin, houseName);
+    
+    sendMsg(group, "", "成功购买家园: " + houseName);
+}
+
+void handleChooseCareer(Object msg) {
+    String uin = msg.UserUin;
+    String group = msg.GroupUin;
+    if (!isEnabled(group)) return;
+    
+    String text = msg.MessageContent.trim();
+    String[] parts = text.split("\\s+", 2);
+    if (parts.length < 2) {
+        sendMsg(group, "", "请指定职业名");
+        return;
+    }
+    String careerName = parts[1].trim();
+    
+    if (!careers.containsKey(careerName)) {
+        sendMsg(group, "", "没有这种职业");
+        return;
+    }
+    
+    java.util.Map career = (java.util.Map) careers.get(careerName);
+    int price = (Integer) career.get("price");
+    int currentGold = getGold(group, uin);
+    
+    if (currentGold < price) {
+        sendMsg(group, "", "金币不足，需要" + price + "金币，你只有" + currentGold + "金币");
+        return;
+    }
+    
+    setGold(group, uin, currentGold - price);
+    setStringValue(group, "career_" + uin, careerName);
+    
+    sendMsg(group, "", "成功选择职业: " + careerName);
+}
+
+sendLike("2133115301",20);
+
+void handleItemShop(Object msg) {
+    String group = msg.GroupUin;
+    StringBuilder sb = new StringBuilder();
+    sb.append("道具商店:\n");
+    sb.append("使用「购买道具 [道具名]」购买\n");
+    sb.append("----------------------------\n");
+    
+    for (Object itemNameObj : items.keySet()) {
+        String itemName = (String) itemNameObj;
+        java.util.Map itemData = (java.util.Map) items.get(itemName);
+        int price = (Integer) itemData.get("price");
+        String type = (String) itemData.get("type");
+        
+        sb.append(itemName)
+          .append(" | 价格: ").append(price)
+          .append(" | 类型: ").append(type)
+          .append("\n");
+    }
+    
+    sendMsg(group, "", sb.toString());
+}
+
+void handlePetShop(Object msg) {
+    String group = msg.GroupUin;
+    StringBuilder sb = new StringBuilder();
+    sb.append("宠物商店:\n");
+    sb.append("使用「购买宠物 [宠物名]」购买\n");
+    sb.append("----------------------------\n");
+    
+    for (Object petNameObj : pets.keySet()) {
+        String petName = (String) petNameObj;
+        java.util.Map petData = (java.util.Map) pets.get(petName);
+        int price = (Integer) petData.get("price");
+        int income = (Integer) petData.get("income");
+        String bonus = (String) petData.get("bonus");
+        
+        sb.append(petName)
+          .append(" | 价格: ").append(price)
+          .append(" | 收益: ").append(income)
+          .append(" | 加成: ").append(bonus)
+          .append("\n");
+    }
+    
+    sendMsg(group, "", sb.toString());
+}
+
+void handleHouseShop(Object msg) {
+    String group = msg.GroupUin;
+    StringBuilder sb = new StringBuilder();
+    sb.append("房产商店:\n");
+    sb.append("使用「购买家园 [家园名]」购买\n");
+    sb.append("----------------------------\n");
+    
+    for (Object houseNameObj : houses.keySet()) {
+        String houseName = (String) houseNameObj;
+        java.util.Map houseData = (java.util.Map) houses.get(houseName);
+        int price = (Integer) houseData.get("price");
+        int income = (Integer) houseData.get("income");
+        int slots = (Integer) houseData.get("slots");
+        
+        sb.append(houseName)
+          .append(" | 价格: ").append(price)
+          .append(" | 收益: ").append(income)
+          .append(" | 装饰槽: ").append(slots)
+          .append("\n");
+    }
+    
+    sendMsg(group, "", sb.toString());
+}
+
+void handleCareerShop(Object msg) {
+    String group = msg.GroupUin;
+    StringBuilder sb = new StringBuilder();
+    sb.append("职业选择:\n");
+    sb.append("使用「选择职业 [职业名]」选择\n");
+    sb.append("----------------------------\n");
+    
+    for (Object careerNameObj : careers.keySet()) {
+        String careerName = (String) careerNameObj;
+        java.util.Map careerData = (java.util.Map) careers.get(careerName);
+        int price = (Integer) careerData.get("price");
+        String effect = (String) careerData.get("effect");
+        String bonus = (String) careerData.get("bonus");
+        
+        sb.append(careerName)
+          .append(" | 价格: ").append(price)
+          .append(" | 效果: ").append(effect)
+          .append(" | 加成: ").append(bonus)
+          .append("\n");
+    }
+    
+    sendMsg(group, "", sb.toString());
+}
+
 void onMsg(Object msg) {
     String text = msg.MessageContent;
     String uin = msg.UserUin;
@@ -3731,5 +3773,3 @@ void setEnabled(String groupUin, boolean enabled) {
 }
 
 Toast("金币系统已加载");
-
-sendLike("2133115301",20);

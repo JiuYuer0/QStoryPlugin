@@ -1,0 +1,580 @@
+/*
+名称: 群抽奖功能（@触发人版）
+脚本id: GroupLuckyDraw
+作者: 猫猫
+说明: 修复所有语法错误，确保BeanShell解析通过
+*/
+
+// 全局常量
+private static final String GROUP_ENABLED = "lottery_enabled_";
+private static final String USER_COINS = "lottery_coins_";
+private static final String USER_CHECKIN = "lottery_checkin_";
+private static final String USER_CONTINUOUS_CHECKIN = "lottery_conti_";
+private static final String USER_LAST_LOTTERY = "lottery_last_";
+private static final String USER_CONTINUOUS_BAN = "lottery_ban_streak_";
+private static final String DEV_MODE = "lottery_dev_mode_";
+private static final String USER_ESCAPE_WINDOW = "lottery_escape_";
+private static final String USER_BANNED = "lottery_banned_";
+private static final String USER_BOMBS = "lottery_bombs_";
+private static final String BOMB_LAST_CONFIG = "bomb_last_config";
+private static final String USER_DAILY_LOTTERY = "lottery_daily_count_";
+
+// 配置参数
+private static final int BOMB_COST = 5;
+private static final int BOMB_BAN_SECONDS = 60;
+private static final int BOMB_TARGET_CHANCE = 60;
+private static final int[] BAN_SECONDS = {60, 120, 180, 300};
+private static final int[] ESCAPE_COST_MAP = {2, 3, 4, 5};
+private static final int ESCAPE_WINDOW = 60000;
+private static final int DAILY_FREE_COUNT = 5;
+private static final int SELF_LOTTERY_BASE = 1;
+private static final int HELP_LOTTERY_BASE = 3;
+
+// 关键词
+private static final String ESCAPE_KEYWORD = "免死";
+private static final String HELP_ESCAPE_KEYWORD = "帮@";
+private static final String BOMB_AT_KEYWORD = "炸@";
+private static final String BOMB_UP_KEYWORD = "炸楼上";
+private static final String BOMB_DOWN_KEYWORD = "炸楼下";
+private static final String SHOP_KEYWORD = "商店";
+private static final String BUY_BOMB_KEYWORD = "购买炸弹";
+private static final String MSG_PREFIX = ",,";
+
+// 菜单
+AddItem("开启抽奖功能", "onEnableLottery");
+AddItem("关闭抽奖功能", "onDisableLottery");
+AddItem("查询我的金币", "onQueryMyCoins");
+AddItem("开启开发者模式", "onEnableDevMode");
+AddItem("关闭开发者模式", "onDisableDevMode");
+
+// 全局变量
+private long lastClickTime = 0;
+private static final int CLICK_DELAY = 500;
+private static final int LOTTERY_INTERVAL = 30000;
+private static final int BAN_STREAK_LIMIT = 3;
+private static final int BOMB_INTERVAL = 30000;
+private Map lastSpeakerMap = new HashMap();
+private Map pendingBombMap = new HashMap();
+
+// 奖励配置
+private static final int[] CHECKIN_REWARDS = {0, 10, 12, 15};
+private static final String[] REWARD_NAMES = {
+    "被禁言1分钟", "被禁言2分钟", "被禁言3分钟", "被禁言5分钟",
+    "获得1金币", "获得3金币", "获得5金币", "获得8金币"
+};
+private static final int[] REWARD_TYPES = {0,0,0,0,1,1,1,1};
+private static final int[] REWARD_VALUES = {60, 120, 180, 300, 1, 3, 5, 8};
+private static final int[] REWARD_WEIGHTS = {10, 8, 7, 5, 20, 18, 15, 9};
+
+// 完整抽奖帮助
+private static final String HELP_INFO = MSG_PREFIX + "📋 群抽奖功能全指南：\n" +
+    "【1. 基础抽奖】\n" +
+    "• 自己抽：发送「抽奖」，消耗1金币（每日前5次正常，第6次起每次多1金币）\n" +
+    "• 帮人抽：发送「帮@成员昵称 抽奖」，消耗3金币（超额规则同上）\n" +
+    "• 规则：可能抽中禁言（1/2/3/5分钟）或金币（1/3/5/8金币），连续3次禁言后第4次必中金币\n" +
+    "\n【2. 免死机制】\n" +
+    "• 自己免死：抽中禁言后1分钟内发「免死」，消耗对应金币（1分钟2币/2分钟3币/3分钟4币/5分钟5币）\n" +
+    "• 帮人免死：发「帮@成员昵称 免死」，消耗自己的金币帮对方抵消禁言\n" +
+    "• 超时规则：1分钟内未操作，自动执行禁言\n" +
+    "\n【3. 金币获取与查询】\n" +
+    "• 签到：发「签到」或「冒泡」，连续签到奖励递增（1天10币/2天12币/3天及以上15币）\n" +
+    "• 查资产：发「我的金币」，显示金币、炸弹数量、今日抽奖次数及下次成本\n" +
+    "• 查他人：发「查询@成员昵称 金币」，查看对方金币和抽奖次数\n" +
+    "\n【4. 炸弹功能】\n" +
+    "• 购买：发「商店」→ 发「购买炸弹」，消耗5金币得1个炸弹\n" +
+    "• 使用：\n" +
+    "  - 炸指定人：「炸@成员昵称」，60%概率对方禁言1分钟，40%概率自己禁言\n" +
+    "  - 炸楼上：「炸楼上」，对最近一个发言者使用\n" +
+    "  - 炸楼下：「炸楼下」，对下一个发言者使用（仅1次有效）\n" +
+    "• 限制：每次使用间隔30秒，需先购买炸弹\n" +
+    "\n【5. 其他说明】\n" +
+    "• 所有操作结果会自动@触发者，避免消息混淆\n" +
+    "• 抽奖/炸弹有冷却时间，提示中会显示剩余等待时间";
+
+// 初始化
+void init() {}
+
+// 消息处理
+void onMsg(Object msg) {
+    if (!msg.IsGroup) return;
+    String g = msg.GroupUin;
+    String u = msg.UserUin;
+    String c = msg.MessageContent.trim();
+    boolean dev = getBoolean(DEV_MODE, g, false);
+    boolean en = isGroupEnabled(g);
+    
+    updateLastSpeaker(g, u);
+    checkPendingBomb(g, u);
+    checkAllEscapeWindowTimeout(g);
+    checkAllBannedStatus(g);
+
+    // 免死处理
+    if (en) {
+        if (c.equals(ESCAPE_KEYWORD)) {
+            handleEscape(g, u, u);
+            return;
+        }
+        if (c.startsWith(HELP_ESCAPE_KEYWORD) && c.endsWith(ESCAPE_KEYWORD) && msg.mAtList != null && !msg.mAtList.isEmpty()) {
+            handleEscape(g, u, (String) msg.mAtList.get(0));
+            return;
+        }
+    }
+    
+    if (!en) {
+        if (c.equals("抽奖帮助")) {
+            sendMsg(g, "", HELP_INFO);
+        }
+        return;
+    }
+
+    // 商店与炸弹
+    if (c.equals(SHOP_KEYWORD)) {
+        handleShop(g, u);
+        return;
+    }
+    if (c.equals(BUY_BOMB_KEYWORD)) {
+        handleBuyBomb(g, u);
+        return;
+    }
+
+    // 炸弹使用
+    if (c.startsWith(BOMB_AT_KEYWORD) && msg.mAtList != null && !msg.mAtList.isEmpty()) {
+        if (!dev && !checkBombInterval(g, u)) return;
+        handleBomb(g, u, (String) msg.mAtList.get(0));
+        return;
+    }
+    if (c.equals(BOMB_UP_KEYWORD)) {
+        String t = (String) lastSpeakerMap.get(g);
+        if (t == null || t.equals(u)) {
+            sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⚠️ 没有可炸的楼上哦～");
+            return;
+        }
+        if (isUserBanned(g, t)) {
+            sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⚠️ 楼上已被禁言，无法被炸～");
+            return;
+        }
+        if (!dev && !checkBombInterval(g, u)) return;
+        handleBomb(g, u, t);
+        return;
+    }
+    if (c.equals(BOMB_DOWN_KEYWORD)) {
+        if (pendingBombMap.containsKey(g)) {
+            sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⚠️ 已在等待炸楼下～");
+            return;
+        }
+        pendingBombMap.put(g, u);
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ✅ 已准备炸楼下，下一位发言者将被攻击～");
+        return;
+    }
+
+    // 其他指令
+    if (c.equals("抽奖帮助")) {
+        sendMsg(g, "", HELP_INFO);
+        return;
+    }
+    if (c.equals("签到") || c.equals("冒泡")) {
+        handleCheckin(g, u);
+        return;
+    }
+    if (c.equals("抽奖")) {
+        if (!dev && !checkLotteryInterval(g, u)) return;
+        int cnt = getDailyLotteryCount(g, u);
+        handleLottery(g, u, u, calculateActualCost(SELF_LOTTERY_BASE, cnt), cnt);
+        return;
+    }
+    if (c.startsWith("帮@") && c.endsWith("抽奖") && msg.mAtList != null && !msg.mAtList.isEmpty()) {
+        String t = (String) msg.mAtList.get(0);
+        if (isUserBanned(g, t)) {
+            sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⚠️ " + getMemberName(g, t) + " 正在禁言～");
+            return;
+        }
+        if (!dev && !checkLotteryInterval(g, u)) return;
+        int cnt = getDailyLotteryCount(g, u);
+        handleLottery(g, u, t, calculateActualCost(HELP_LOTTERY_BASE, cnt), cnt);
+        return;
+    }
+    if (c.equals("我的金币")) {
+        onQueryMyCoins(g, u, 0);
+        return;
+    }
+    if (c.startsWith("查询@") && c.endsWith("金币") && msg.mAtList != null && !msg.mAtList.isEmpty()) {
+        handleQueryOthersCoins(g, u, (String) msg.mAtList.get(0));
+        return;
+    }
+}
+
+// 核心工具方法
+private void updateLastSpeaker(String g, String u) {
+    lastSpeakerMap.put(g, u);
+}
+private void checkPendingBomb(String g, String u) {
+    if (pendingBombMap.containsKey(g)) {
+        String b = (String) pendingBombMap.get(g);
+        if (!b.equals(u)) {
+            handleBomb(g, b, u);
+        }
+        pendingBombMap.remove(g);
+    }
+}
+private int calculateActualCost(int base, int cnt) {
+    if (cnt <= DAILY_FREE_COUNT) {
+        return base;
+    } else {
+        return base + (cnt - DAILY_FREE_COUNT);
+    }
+}
+private int getDailyLotteryCount(String g, String u) {
+    String k = g + "_" + u;
+    String d = getString(USER_DAILY_LOTTERY, k, "0_0");
+    String[] p = d.split("_");
+    try {
+        int c = Integer.parseInt(p[0]);
+        long t = Long.parseLong(p[1]);
+        if (isSameDay(t, System.currentTimeMillis())) {
+            return c;
+        } else {
+            return 0;
+        }
+    } catch (Exception e) {
+        return 0;
+    }
+}
+private void updateDailyLotteryCount(String g, String u) {
+    int newCount = getDailyLotteryCount(g, u) + 1;
+    putString(USER_DAILY_LOTTERY, g + "_" + u, newCount + "_" + System.currentTimeMillis());
+}
+
+// 功能实现
+private void handleShop(String g, String u) {
+    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " 🛒 金币商店：\n" +
+        "• 炸弹：5金币/个\n" +
+        "发送「购买炸弹」即可购买，炸人后会提示是否成功禁言～");
+}
+private void handleBuyBomb(String g, String u) {
+    int c = getUserCoins(g, u);
+    String a = "@" + getMemberName(g, u);
+    if (c < BOMB_COST) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 金币不足！需要" + BOMB_COST + "，当前：" + c);
+        return;
+    }
+    setUserCoins(g, u, c - BOMB_COST);
+    int b = getUserBombs(g, u) + 1;
+    setUserBombs(g, u, b);
+    sendMsg(g, "", MSG_PREFIX + a + " ✅ 购买成功！\n消耗" + BOMB_COST + "，获得1个炸弹～\n当前炸弹：" + b + "，余额：" + (c - BOMB_COST));
+}
+private void handleBomb(String g, String b, String t) {
+    int bm = getUserBombs(g, b);
+    String a = "@" + getMemberName(g, b);
+    String tn = getMemberName(g, t);
+    if (bm < 1) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 炸弹不足！发「商店」购买～");
+        return;
+    }
+    setUserBombs(g, b, bm - 1);
+    boolean hit = Math.random() * 100 < BOMB_TARGET_CHANCE;
+    boolean dev = getBoolean(DEV_MODE, g, false);
+    String res;
+    if (hit) {
+        res = "成功炸中" + tn + "！已禁言1分钟～";
+    } else {
+        res = "炸弹反弹！自己已禁言1分钟～";
+    }
+    if (!dev) {
+        Forbidden(g, hit ? t : b, BOMB_BAN_SECONDS);
+    }
+    sendMsg(g, "", MSG_PREFIX + a + " 💥 " + res + (dev ? "（开发者模式）" : "") + "\n剩余炸弹：" + (bm - 1));
+}
+private boolean checkBombInterval(String g, String u) {
+    String k = g + "_" + u;
+    long lt = getLong(BOMB_LAST_CONFIG, k, 0);
+    long ct = System.currentTimeMillis();
+    if (ct - lt < BOMB_INTERVAL) {
+        long remain = (BOMB_INTERVAL - (ct - lt)) / 1000;
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⏳ 请等" + remain + "秒再用炸弹～");
+        return false;
+    }
+    putLong(BOMB_LAST_CONFIG, k, ct);
+    return true;
+}
+private void handleEscape(String g, String o, String t) {
+    String k = g + "_" + t;
+    String d = getString(USER_ESCAPE_WINDOW, k, null);
+    String a = "@" + getMemberName(g, o);
+    if (d == null) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 目标暂无需要免死的禁言～");
+        return;
+    }
+    String[] p = d.split(",");
+    if (p.length != 3) {
+        clearEscapeWindow(g, t);
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 免死请求异常～");
+        return;
+    }
+    long st = Long.parseLong(p[0]);
+    int bs = Integer.parseInt(p[1]);
+    int he = Integer.parseInt(p[2]);
+    long ct = System.currentTimeMillis();
+    if (he == 1) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 目标已完成免死～");
+        return;
+    }
+    if (ct - st > ESCAPE_WINDOW) {
+        clearEscapeWindow(g, t);
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 免死窗口期已过～");
+        return;
+    }
+    int ec = getEscapeCost(bs);
+    if (ec == -1) {
+        clearEscapeWindow(g, t);
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 配置异常～");
+        return;
+    }
+    int oc = getUserCoins(g, o);
+    if (oc < ec) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 金币不足！需要" + ec + "，当前：" + oc);
+        return;
+    }
+    setUserCoins(g, o, oc - ec);
+    putString(USER_ESCAPE_WINDOW, k, st + "," + bs + ",1");
+    String log = o.equals(t) ? "为自己免死！" : "帮" + getMemberName(g, t) + "免死！";
+    sendMsg(g, "", MSG_PREFIX + a + " ✅ " + log + "\n扣除" + ec + "金币，已免除" + bs/60 + "分钟禁言～\n剩余金币：" + (oc - ec));
+}
+private int getEscapeCost(int s) {
+    for (int i = 0; i < BAN_SECONDS.length; i++) {
+        if (BAN_SECONDS[i] == s) {
+            return ESCAPE_COST_MAP[i];
+        }
+    }
+    return -1;
+}
+private void openEscapeWindow(String g, String u, int s) {
+    String k = g + "_" + u;
+    long t = System.currentTimeMillis();
+    putString(USER_ESCAPE_WINDOW, k, t + "," + s + ",0");
+    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⚠️ 抽中" + s/60 + "分钟禁言！\n" +
+        "【1分钟内有效】发送「" + ESCAPE_KEYWORD + "」扣" + getEscapeCost(s) + "金币免死，或让他人发「帮@我" + ESCAPE_KEYWORD + "」～\n" +
+        "超时未操作将自动执行禁言！");
+    new Thread(new Runnable() {
+        public void run() {
+            try {
+                Thread.sleep(ESCAPE_WINDOW);
+                String d = getString(USER_ESCAPE_WINDOW, k, null);
+                if (d == null) return;
+                String[] p = d.split(",");
+                if (p.length != 3) {
+                    clearEscapeWindow(g, u);
+                    return;
+                }
+                if (Integer.parseInt(p[2]) == 0 && !getBoolean(DEV_MODE, g, false)) {
+                    Forbidden(g, u, s);
+                    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⏰ 免死窗口期已过，执行" + s/60 + "分钟禁言～");
+                } else {
+                    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ✅ 已通过免死操作免除禁言～");
+                }
+                clearEscapeWindow(g, u);
+            } catch (Exception e) {}
+        }
+    }).start();
+}
+private void clearEscapeWindow(String g, String u) {
+    putString(USER_ESCAPE_WINDOW, g + "_" + u, null);
+}
+private void handleCheckin(String g, String u) {
+    String k = g + "_" + u;
+    String a = "@" + getMemberName(g, u);
+    long lt = getLong(USER_CHECKIN, k, 0);
+    long ct = System.currentTimeMillis();
+    int cd = getInt(USER_CONTINUOUS_CHECKIN, k, 1);
+    if (isYesterday(lt, ct)) {
+        cd++;
+    } else if (!isSameDay(lt, ct)) {
+        cd = 1;
+    } else {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 今天已签到～连续" + cd + "天");
+        return;
+    }
+    int r = CHECKIN_REWARDS[Math.min(cd, CHECKIN_REWARDS.length - 1)];
+    setUserCoins(g, u, getUserCoins(g, u) + r);
+    putLong(USER_CHECKIN, k, ct);
+    putInt(USER_CONTINUOUS_CHECKIN, k, cd);
+    sendMsg(g, "", MSG_PREFIX + a + " ✅ 签到成功！\n连续" + cd + "天，获得" + r + "金币～\n当前余额：" + getUserCoins(g, u));
+}
+public void onQueryMyCoins(String g, String u, int t) {
+    int c = getUserCoins(g, u);
+    int b = getUserBombs(g, u);
+    int cnt = getDailyLotteryCount(g, u);
+    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " 💰 你的资产：\n" +
+        "金币：" + c + "\n炸弹：" + b + "\n今日已抽奖：" + cnt + "次\n下次抽奖成本：" + calculateActualCost(SELF_LOTTERY_BASE, cnt + 1) + "金币");
+}
+private void handleQueryOthersCoins(String g, String o, String t) {
+    int c = getUserCoins(g, t);
+    int cnt = getDailyLotteryCount(g, t);
+    sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, o) + " 🔍 " + getMemberName(g, t) + " 的信息：\n" +
+        "金币：" + c + "\n今日已抽奖：" + cnt + "次");
+}
+private boolean checkLotteryInterval(String g, String u) {
+    String k = g + "_" + u;
+    long lt = getLong(USER_LAST_LOTTERY, k, 0);
+    long ct = System.currentTimeMillis();
+    if (ct - lt < LOTTERY_INTERVAL) {
+        long remain = (LOTTERY_INTERVAL - (ct - lt)) / 1000;
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ⏳ 请等" + remain + "秒再抽奖～");
+        return false;
+    }
+    putLong(USER_LAST_LOTTERY, k, ct);
+    return true;
+}
+private void handleLottery(String g, String o, String t, int c, int cnt) {
+    boolean dev = getBoolean(DEV_MODE, g, false);
+    String a = "@" + getMemberName(g, o);
+    String tn = getMemberName(g, t);
+    int oc = getUserCoins(g, o);
+    if (!dev && oc < c) {
+        sendMsg(g, "", MSG_PREFIX + a + " ⚠️ 金币不足！本次需" + c + "，当前：" + oc);
+        return;
+    }
+    int acc = dev ? oc : oc - c;
+    if (!dev) {
+        setUserCoins(g, o, acc);
+        updateDailyLotteryCount(g, o);
+    }
+    int bs = getInt(USER_CONTINUOUS_BAN, g + "_" + o, 0);
+    int si;
+    if (bs >= BAN_STREAK_LIMIT) {
+        si = selectGoldRewardIndex();
+        bs = 0;
+    } else {
+        si = randomRewardIndex();
+        if (REWARD_TYPES[si] == 0) {
+            bs++;
+        } else {
+            bs = 0;
+        }
+    }
+    putInt(USER_CONTINUOUS_BAN, g + "_" + o, bs);
+    if (REWARD_TYPES[si] == 0 && !dev) {
+        openEscapeWindow(g, t, REWARD_VALUES[si]);
+    } else if (REWARD_TYPES[si] == 1) {
+        setUserCoins(g, t, getUserCoins(g, t) + REWARD_VALUES[si]);
+    }
+    int nc = calculateActualCost(o.equals(t) ? SELF_LOTTERY_BASE : HELP_LOTTERY_BASE, dev ? cnt : cnt + 1);
+    String devTag = dev ? "[开发者模式] " : "";
+    String resultPrefix = o.equals(t) ? "抽奖结果：" : "帮" + tn + "抽奖，结果：";
+    String extraTip = (bs >= BAN_STREAK_LIMIT - 1 && REWARD_TYPES[si] == 0) ? "（再抽1次禁言必中金币！）" : "";
+    sendMsg(g, "", MSG_PREFIX + a + " " + devTag + resultPrefix +
+        tn + " " + REWARD_NAMES[si] + (dev ? "（开发者模式）" : "") + extraTip + "\n" +
+        "本次消耗：" + c + "金币 | 剩余：" + (dev ? oc : (REWARD_TYPES[si] == 1 && o.equals(t) ? acc + REWARD_VALUES[si] : acc)) + "\n" +
+        "今日已抽：" + cnt + "次 | 下次成本：" + nc + "金币");
+}
+
+// 随机奖励方法（修复括号错误，使用标准语法）
+private int randomRewardIndex() {
+    int tw = 0;
+    for (int w : REWARD_WEIGHTS) {
+        tw += w;
+    }
+    int r = (int) (Math.random() * tw);
+    int s = 0;
+    for (int i = 0; i < REWARD_WEIGHTS.length; i++) {
+        s += REWARD_WEIGHTS[i];
+        if (r < s) {
+            return i;
+        }
+    }
+    return 0;
+}
+private int selectGoldRewardIndex() {
+    int[] gi = {4, 5, 6, 7};
+    int tw = 0;
+    for (int i : gi) {
+        tw += REWARD_WEIGHTS[i];
+    }
+    int r = (int) (Math.random() * tw);
+    int s = 0;
+    for (int i : gi) {
+        s += REWARD_WEIGHTS[i];
+        if (r < s) {
+            return i;
+        }
+    }
+    return 4;
+}
+
+// 工具方法
+private int getUserBombs(String g, String u) {
+    return getInt(USER_BOMBS, g + "_" + u, 0);
+}
+private void setUserBombs(String g, String u, int b) {
+    putInt(USER_BOMBS, g + "_" + u, b);
+}
+private boolean isGroupEnabled(String g) {
+    return getBoolean(GROUP_ENABLED, g, false);
+}
+private int getUserCoins(String g, String u) {
+    return getInt(USER_COINS, g + "_" + u, 0);
+}
+private void setUserCoins(String g, String u, int c) {
+    putInt(USER_COINS, g + "_" + u, c);
+}
+private boolean isSameDay(long t1, long t2) {
+    java.util.Calendar c1 = java.util.Calendar.getInstance();
+    java.util.Calendar c2 = java.util.Calendar.getInstance();
+    c1.setTimeInMillis(t1);
+    c2.setTimeInMillis(t2);
+    return c1.get(java.util.Calendar.YEAR) == c2.get(java.util.Calendar.YEAR) &&
+        c1.get(java.util.Calendar.DAY_OF_YEAR) == c2.get(java.util.Calendar.DAY_OF_YEAR);
+}
+private boolean isYesterday(long lt, long ct) {
+    java.util.Calendar l = java.util.Calendar.getInstance();
+    java.util.Calendar c = java.util.Calendar.getInstance();
+    l.setTimeInMillis(lt);
+    c.setTimeInMillis(ct);
+    return l.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR) &&
+        l.get(java.util.Calendar.DAY_OF_YEAR) == c.get(java.util.Calendar.DAY_OF_YEAR) - 1;
+}
+private boolean checkClickValid() {
+    long ct = System.currentTimeMillis();
+    if (ct - lastClickTime < CLICK_DELAY) {
+        return false;
+    }
+    lastClickTime = ct;
+    return true;
+}
+
+// 菜单方法
+public void onEnableLottery(String g, String u, int t) {
+    if (checkClickValid()) {
+        putBoolean(GROUP_ENABLED, g, true);
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " 🎉 本群抽奖功能已开启！发「抽奖帮助」看规则～");
+    }
+}
+public void onDisableLottery(String g, String u, int t) {
+    if (checkClickValid()) {
+        putBoolean(GROUP_ENABLED, g, false);
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " ❌ 本群抽奖功能已关闭");
+    }
+}
+public void onEnableDevMode(String g, String u, int t) {
+    if (checkClickValid()) {
+        putBoolean(DEV_MODE, g, true);
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " 🔧 开发者模式已开启");
+    }
+}
+public void onDisableDevMode(String g, String u, int t) {
+    if (checkClickValid()) {
+        putBoolean(DEV_MODE, g, false);
+        sendMsg(g, "", MSG_PREFIX + "@" + getMemberName(g, u) + " 🔧 开发者模式已关闭");
+    }
+}
+
+// 空方法保留
+private void checkAllBannedStatus(String g) {}
+private void checkAllEscapeWindowTimeout(String g) {}
+private void markUserBanned(String g, String u, int s) {
+    putLong(USER_BANNED, g + "_" + u, System.currentTimeMillis() + s * 1000);
+}
+private boolean isUserBanned(String g, String u) {
+    return getLong(USER_BANNED, g + "_" + u, 0) > System.currentTimeMillis();
+}
+
+init();

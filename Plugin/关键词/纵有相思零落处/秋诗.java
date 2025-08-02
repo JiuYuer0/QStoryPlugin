@@ -49,7 +49,7 @@ public class 秋诗 {
                 落尘.append(诗);
             }
         } catch(Exception e) {
-        Toast(""+e);
+        toast(""+e);
         e.printStackTrace();
         } finally {
             try {

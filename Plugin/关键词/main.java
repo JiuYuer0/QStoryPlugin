@@ -1,4 +1,5 @@
 
+    
 //临江踏雨不返
 
 //你总是担心失去谁 可谁又会担心失去你
@@ -10,7 +11,7 @@ import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-String 路 = AppPath + "/纵有相思零落处/";
+String 路 = appPath + "/纵有相思零落处/";
 String 诗集 = 路 + "/也无旧时折枯枝/";
 load(路+"秋诗.java");
 
@@ -105,7 +106,7 @@ public class 江云 {
     }
 	protected void finalize() throws Throwable {
 		super.finalize();
-		//Toast("内存已回收");
+		//toast("内存已回收");
 	}
 }
 江云.刷新();
@@ -113,7 +114,7 @@ public class 江云 {
 public void onMsg(Object msg) {
     if (!msg.IsGroup) return;
     
-    if (msg.UserUin.equals(MyUin)) {
+    if (msg.UserUin.equals(myUin)) {
         new Thread(new Runnable() {
               public void run() {
                   for (int i=0;i<=江云.残梦.length-1;i++) {        
@@ -203,7 +204,7 @@ public void onMsg(Object msg) {
                         if (江.关键词.contains(江.文本) || 江.文本.contains(江.关键词) ) {
                            sendMsg(msg.GroupUin,"","回复内容和关键词重叠 会导致自己触发自己刷屏 已自动开启不接受自己的消息");
                            putString("关键词", "己",null);
-	                       Toast("已开启屏蔽自己 不会检测自己发送的关键词");
+	                       toast("已开启屏蔽自己 不会检测自己发送的关键词");
                         }
                         江.处理内容.put("回复",江.文本);
                         江.处理方式组.put(江.处理内容);
@@ -223,7 +224,7 @@ public void onMsg(Object msg) {
                         if (江.关键词.contains(江.文本) || 江.文本.contains(江.关键词) ) {
                            sendMsg(msg.GroupUin,"","回复内容和关键词重叠 会导致自己触发自己刷屏 已自动开启不接受自己的消息");
                            putString("关键词", "己",null);
-	                       Toast("已开启屏蔽自己 不会检测自己发送的关键词");
+	                       toast("已开启屏蔽自己 不会检测自己发送的关键词");
                         }
                         江.处理内容.put("回",江.文本);
                         江.处理方式组.put(江.处理内容);
@@ -284,7 +285,7 @@ public void onMsg(Object msg) {
                   +江.待写处理方式;
                   for (int i2=0;i2<=江.处理方式组.length()-1;i2++) {
                        if (江.处理方式组.get(i2).toString().equals("撤回")) {
-                            Toast(江.解析过程文本);
+                            toast(江.解析过程文本);
                             江.是否撤回 = true;
                             break;
                        }
@@ -408,7 +409,7 @@ public void onMsg(Object msg) {
        }
     }
     if (江云.时) {
-        if (江云.静态双列总对象.containsKey(msg.GroupUin)&& (!msg.UserUin.equals(MyUin) || getString("关键词","己") != null )) {
+        if (江云.静态双列总对象.containsKey(msg.GroupUin)&& (!msg.UserUin.equals(myUin) || getString("关键词","己") != null )) {
             江云.组词列表 = new JSONObject(江云.静态双列总对象.get(msg.GroupUin));
             Iterator it = 江云.组词列表.keys();
             while (it.hasNext()) {
@@ -444,69 +445,69 @@ public static void 解析处理方式(String text,Object msg) {
                         sendReply(msg.GroupUin,msg,content);
                    }
                    if (!处理方式.isNull("禁言")) {
-                        Forbidden(msg.GroupUin,msg.UserUin,(int)处理方式.get("禁言"));
+                        forbidden(msg.GroupUin,msg.UserUin,(int)处理方式.get("禁言"));
                    }
                    if (!处理方式.isNull("延迟")) {
                         Thread.sleep( (long) 处理方式.get("延迟") );
                    }
                    if (!处理方式.isNull("踢")) {
-                        Kick(msg.GroupUin,msg.UserUin,(boolean)处理方式.get("踢"));
+                        kick(msg.GroupUin,msg.UserUin,(boolean)处理方式.get("踢"));
                    }                
                 }
                 if (处理方式 instanceof String) {
                     if (处理方式.equals("撤回"))
                         revokeMsg(msg);
                     if (处理方式.equals("全体禁言"))
-                        Forbidden(msg.GroupUin,"",1);
+                        forbidden(msg.GroupUin,"",1);
                     if (处理方式.equals("全体解禁"))
-                        Forbidden(msg.GroupUin,"",0);
+                        forbidden(msg.GroupUin,"",0);
                 }
             }
         }
     }).start();
 }
-AddItem("检测自己","关键词",PluginID);
+addItem("检测自己","关键词",pluginID);
 public void 关键词(String s)
 {
 if(getString("关键词","己")==null)
 	{
 	putString("关键词", "己","开");
-    Toast("已关闭屏蔽自己 会检测自己发送的关键词");
+    toast("已关闭屏蔽自己 会检测自己发送的关键词");
 	}
 	else{
 	putString("关键词", "己",null);
-	Toast("已开启屏蔽自己 不会检测自己发送的关键词");
+	toast("已开启屏蔽自己 不会检测自己发送的关键词");
 	}
 }
 
-AddItem("正则表达式","正则表达式",PluginID);
+addItem("正则表达式","正则表达式",pluginID);
 public void 正则表达式(String s)
 {
 if(getString("正则表达式",s)==null)
 	{
 	putString("正则表达式",s,"开");
-    Toast("已开启本群的正则表达式模式");
+    toast("已开启本群的正则表达式模式");
 	}
 	else{
 	putString("正则表达式",s,null);
-	Toast("已关闭本群的正则表达式模式");
+	toast("已关闭本群的正则表达式模式");
 	}
 }
-AddItem("开关加载提示","加载提示",PluginID);
+addItem("开关加载提示","加载提示",pluginID);
 public void 加载提示(String s)
 {
 if(getString("加载提示","开关")==null)
 	{
 	putString("加载提示","开关","关");
-    Toast("已关闭加载提示");
+    toast("已关闭加载提示");
 	}
 	else{
 	putString("加载提示","开关",null);
-	Toast("已开启加载提示");
+	toast("已开启加载提示");
 	}
 }
 if (getString("加载提示","开关")==null)
-Toast("发送 \"关键词\" 查看使用说明");
+toast("发送 \"关键词\" 查看使用说明");
 
 
 // 希望有人懂你的言外之意 更懂你的欲言又止.

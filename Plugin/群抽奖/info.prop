@@ -1,0 +1,7 @@
+id=GroupLuckyDraw_v2
+name=群抽奖功能（正式版v2.0）
+type=1
+version=2.0
+author=猫猫
+time=2025-07-16
+description=群内互动抽奖工具，支持抽奖、分级免死、炸弹功能，新增每日抽奖超额加价机制，纯文字指令交互

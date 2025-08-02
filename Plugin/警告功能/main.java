@@ -96,7 +96,7 @@ public void onMsg(Object msg) {
     if (isWarnCommand) {
         if (!getBoolean("WarnEnable", groupUin, false)) return;
         if (!isAdmin(groupUin, senderUin)) {
-            sendMsg(groupUin, "", "需要管理员权限");
+            Toast("需要管理员权限");
             return;
         }
         
@@ -118,7 +118,7 @@ public void onMsg(Object msg) {
     
     if (content.startsWith("/ban")) {
         if (!isAdmin(groupUin, senderUin)) {
-            sendMsg(groupUin, "", "需要管理员权限");
+            Toast("需要管理员权限");
             return;
         }
         if (msg.mAtList == null) return;
@@ -136,7 +136,10 @@ public void onMsg(Object msg) {
     }
     
     if (content.startsWith("/check") || content.startsWith("/reset")) {
-        if (!isAdmin(groupUin, senderUin)) return;
+        if (!isAdmin(groupUin, senderUin)) {
+            Toast("需要管理员权限");
+            return;
+        }
         if (msg.mAtList == null) return;
         
         for (String targetUin : msg.mAtList) {
