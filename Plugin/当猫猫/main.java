@@ -47,10 +47,10 @@ public void TOGGLE_CAT_GIRL(String GroupUin, String UserUin, int ChatType) {
 
     String key = UserUin + GroupUin + ChatType;
     String status = getString(CAT_GIRL_FEATURE, key);
-    String newStatus = (status == null) ? "OFF" : null;
+    String newStatus = (status == null) ? "ON" : null;
 
     putString(CAT_GIRL_FEATURE, key, newStatus);
-    Toast(newStatus == null ? "已开启变猫娘" : "已关闭变猫娘");
+    Toast(newStatus == null ? "已关闭变猫娘" : "已开启变猫娘");
 }
 
 // 其他功能开关

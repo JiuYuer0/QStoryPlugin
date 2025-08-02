@@ -1,0 +1,4 @@
+//测试QQ版本9.1.35
+//去掉了繁琐的qqGetUrl改为使用QQ内部定义的URL Scheme
+//更新了更多的好友主页进入的URL Scheme
+//减少了稳定性
